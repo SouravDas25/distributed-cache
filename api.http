@@ -1,0 +1,17 @@
+POST http://localhost:8000/save/apple
+Content-Type: application/json
+
+{
+    "HELLO": 1
+}
+
+###
+GET http://localhost:8000/retrieve/apple
+Accept: application/json
+
+###
+
+GET http://localhost:8000/contains/apple
+Accept: application/json
+
+###

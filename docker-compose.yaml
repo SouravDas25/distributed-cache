@@ -1,0 +1,13 @@
+version: '3'
+services:
+    master:
+        build: master-node
+        container_name: masterdb
+        environment:
+            DATA_HOST: ""
+            CACHE_CONFIG: >
+                {
+                    "NO_OF_NODES" : 1
+                }
+        ports:
+            - "8080:8000"
