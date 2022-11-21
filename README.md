@@ -1,2 +1,2 @@
 # distributed-cache
-Impletementatino of a Distributed Cache using K8s &amp; Docker
+Implementation of a Distributed Cache using K8s &amp; Docker

@@ -8,7 +8,7 @@ class DataNode(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def compact(self):
+    def compact(self, capacity):
         pass
 
     @abc.abstractmethod
@@ -29,4 +29,8 @@ class DataNode(abc.ABC):
 
     @abc.abstractmethod
     def has(self, key):
+        pass
+
+    @abc.abstractmethod
+    def load(self):
         pass

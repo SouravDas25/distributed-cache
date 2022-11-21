@@ -8,4 +8,4 @@ def stableHash(key: str):
 
 
 def toCacheIndex(key: str, cacheSize: int):
-    return stableHash(key) % cacheSize
+    return max(stableHash(key) % (cacheSize + 1), 1)

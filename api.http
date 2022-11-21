@@ -1,4 +1,4 @@
-POST http://localhost:8000/save/apple
+POST http://localhost:8080/save/apple
 Content-Type: application/json
 
 {
@@ -6,12 +6,12 @@ Content-Type: application/json
 }
 
 ###
-GET http://localhost:8000/retrieve/apple
+GET http://localhost:8080/retrieve/apple
 Accept: application/json
 
 ###
 
-GET http://localhost:8000/contains/apple
+GET http://localhost:8080/contains/apple
 Accept: application/json
 
 ###

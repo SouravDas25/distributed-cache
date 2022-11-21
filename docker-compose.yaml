@@ -1,9 +1,11 @@
 version: '3'
 services:
     master:
-        build: master-node
-        container_name: masterdb
+        image: python:3
+        container_name: masternode
         environment:
+            PYTHONUNBUFFERED: 1
+            PYTHONPATH: "/home/app"
             DATA_HOST: ""
             CACHE_CONFIG: >
                 {
@@ -11,3 +13,7 @@ services:
                 }
         ports:
             - "8080:8000"
+        working_dir: /home/app/masternode
+        entrypoint: sh start.sh
+        volumes:
+            - ./masternode:/home/app/masternode

@@ -1,4 +1,4 @@
-from cluster import ServerCluster
+from masternode.main.manager.cluster import DataNodeCluster
 
 
 class CacheConfig:
@@ -13,7 +13,7 @@ class DistributedCache:
 
     def __init__(self):
         self.config = CacheConfig()
-        self.serverCluster = ServerCluster(self.config.cacheSize)
+        self.serverCluster = DataNodeCluster(self.config.cacheSize)
 
     def put(self, key, value):
         server = self.serverCluster.getServer(key)
