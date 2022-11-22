@@ -1,6 +1,6 @@
 import threading
 
-from masternode.main.common.data_nodes.in_memory_datanode import InMemoryDataNode
+from masternode.main.manager.data_nodes.in_memory_datanode import InMemoryDataNode
 
 
 class DataNodeFactory:

@@ -17,3 +17,4 @@ services:
         entrypoint: sh start.sh
         volumes:
             - ./masternode:/home/app/masternode
+            - ./common:/home/app/common

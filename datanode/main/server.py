@@ -1,14 +1,28 @@
 from flask import Flask, request, Response
 
-from manager.cache import DistributedCache
+from LRUCache import LRUCache
 
 app = Flask(__name__)
-cache = DistributedCache()
+cache = LRUCache()
 
 
 @app.route("/")
 def hello_world():
     return "<p>Hello, World!</p>"
+
+
+@app.route('/metrics', methods=['GET'])
+def retrieve():
+    metrics = {
+        "load": cache.load(),
+        "size": cache.size(),
+        "capacity": cache.size()
+    }
+    return app.response_class(
+        response=metrics,
+        status=404,
+        mimetype='application/json'
+    )
 
 
 @app.route('/retrieve/<key>', methods=['GET'])

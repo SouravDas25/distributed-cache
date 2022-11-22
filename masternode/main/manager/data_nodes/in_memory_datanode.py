@@ -1,7 +1,7 @@
 import pylru
 
-from masternode.main.manager.utils.hashing import toCacheIndex
-from masternode.main.common.interfaces.datanode import DataNode
+from common.utils.hashing import toCacheIndex
+from common.interfaces.datanode import DataNode
 
 
 class InMemoryDataNode(DataNode):

@@ -1,11 +1,11 @@
 from time import sleep
 from typing import Dict
 
-from masternode.main.common.data_nodes.factory import DataNodeFactory
-from masternode.main.common.interfaces.datanode import DataNode
+from common.interfaces.datanode import DataNode
+from common.utils.hashing import toCacheIndex
+from common.utils.utils import CommonUtil
+from masternode.main.manager.data_nodes.factory import DataNodeFactory
 
-from masternode.main.manager.utils.hashing import toCacheIndex
-from masternode.main.manager.utils.utils import CommonUtil
 
 
 class DataNodeCluster:
