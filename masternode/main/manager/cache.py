@@ -1,4 +1,4 @@
-from masternode.main.manager.cluster import DataNodeCluster
+from masternode.main.manager.cluster import ConsistentHashRing
 
 
 class CacheConfig:
@@ -13,7 +13,7 @@ class DistributedCache:
 
     def __init__(self):
         self.config = CacheConfig()
-        self.serverCluster = DataNodeCluster(self.config.cacheSize)
+        self.serverCluster = ConsistentHashRing(self.config.cacheSize)
 
     def put(self, key, value):
         server = self.serverCluster.getServer(key)

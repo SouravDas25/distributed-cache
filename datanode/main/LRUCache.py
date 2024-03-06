@@ -19,7 +19,7 @@ class LRUCache(DataNode):
             index = toCacheIndex(key, size)
             if low < index <= high:
                 targetServer.put(key, self.cache[key])
-                # self.cache.pop(key)
+                self.cache.pop(key)
                 self.keysToBeRemoved.add(key)
         # print(removeKeys)
 

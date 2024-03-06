@@ -4,15 +4,11 @@ import abc
 class DataNode(abc.ABC):
 
     @abc.abstractmethod
-    def moveKeys(self, targetServer, low: int, high: int, size: int):
+    def moveKeys(self, targetServer, fromHash, toHash):
         pass
 
     @abc.abstractmethod
     def compact(self, capacity):
-        pass
-
-    @abc.abstractmethod
-    def capacity(self):
         pass
 
     @abc.abstractmethod
@@ -29,8 +25,4 @@ class DataNode(abc.ABC):
 
     @abc.abstractmethod
     def has(self, key):
-        pass
-
-    @abc.abstractmethod
-    def load(self):
         pass

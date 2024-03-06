@@ -1,20 +1,30 @@
+import hashlib
 from time import sleep
 from typing import Dict
 
+from common.MedianHeap import MedianHeap
+from common.TreeMap import TreeDict
 from common.interfaces.datanode import DataNode
-from common.utils.hashing import toCacheIndex
+from common.utils.hashing import toCacheIndex, stableHash
 from common.utils.utils import CommonUtil
 from masternode.main.manager.data_nodes.factory import DataNodeFactory
 
+from sortedcontainers import SortedDict
+
+MAX_SERVERS = 16
 
 
-class DataNodeCluster:
+class ConsistentHashRing:
 
-    def __init__(self, cacheSize):
-        self.cacheSize = cacheSize
-        self.servers: Dict[DataNode] = {}
-        self.servePoints = []
-        self.addServer("data-server-0", None, 0, cacheSize - 1)
+    def __init__(self, max_size: int) -> None:
+        self.max_size = max_size
+        self.ring: TreeDict[DataNode] = TreeDict()
+        self.medianHeap = MedianHeap()
+        for i in range(MAX_SERVERS):
+            self.medianHeap.push(stableHash("data-server-" + str(i)))
+        self.medianHeap.push(0)
+        # self.addServer("data-server-0")
+        self.ring[0] = DataNodeFactory.instance().getInMemoryDataNode("data-server-0")
         # self.scheduler = BackgroundScheduler()
         # self.scheduler.add_job(lambda: self.balance(), "interval", minutes=1)
         # self.scheduler.start()
@@ -22,54 +32,67 @@ class DataNodeCluster:
 
     def balance(self):
         print("RUNNING BALANCE")
-        balanceREQ = []
-        low = 0
-        for serverIndex, serverId in self.servePoints:
-            server = self.servers[serverId]
-            capacity = server.capacity()
-            load = server.load()
-            slotPercentage = capacity / self.cacheSize
-            print("{0}: load: {1}, datanode-capacity: {2}, slot-capacity: {3}".format(
-                serverId, load, capacity, slotPercentage))
-            if load > 0.3 and slotPercentage > 0.3:
-                balanceREQ.append((serverId, low, serverIndex))
-            low = serverIndex
+        balanceReq = []
 
-        for serverId, low, high in balanceREQ:
-            serverName = "data-server-" + str(len(self.servers))
-            newHigh = low + (high - low) // 2
-            # auto-scaling
-            self.addServer(serverName, serverId, low, newHigh)
+        for serverKey in list(self.ring.key_set()):
+            server = self.ring[serverKey]
+            size = server.size()
+            # if size <= 0:
+            #     continue
+            load = size / self.max_size
+            print("{0}: load: {1}, datanode-size: {2}".format(server.name(), load, size))
+            if load > 0.3:
+                balanceReq.append(serverKey)
+
+
+        for serverKey in balanceReq:
+            if serverKey == 0:
+                fromHash = serverKey
+                toHash = self.ring.last_key()
+            else:
+                fromHash = self.ring.lower_key(serverKey)
+                toHash = serverKey
+            self.addServer(fromHash, toHash)
+
         print("COMPLETING BALANCE")
         pass
 
-    def addServer(self, newServerId, overloadedServerId, low, high):
-        print("ADDING DATA-NODE ", newServerId, low, high)
-        newServerCapacity = high - low
-        if low == 0:
-            newServerCapacity += 1
-        self.servers[newServerId] = DataNodeFactory.instance().getInMemoryDataNode(newServerId, newServerCapacity)
-        if overloadedServerId is not None:
-            sourceServer: DataNode = self.servers[overloadedServerId]
-            sourceServer.moveKeys(self.servers[newServerId], low, high, self.cacheSize)
-        self.servePoints.append((high, newServerId))
-        self.servePoints.sort()
-        if overloadedServerId is not None:
-            sourceServer: DataNode = self.servers[overloadedServerId]
-            sourceServer.compact(sourceServer.capacity() // 2)
+    def addServer(self, fromHash, toHash):
+        serverName = "data-server-" + str(len(self.ring))
+        print("ADDING DATA-NODE ", serverName)
+
+        currentKey = self.medianHeap.getMidKey(fromHash, toHash)
+        if currentKey is None:
+            print("NO Current Key Found, end of fractal")
+            return
+
+        if currentKey in self.ring:
+            return
+
+        behideKey = self.ring.floor_key(currentKey)
+        aheadKey = self.ring.ceiling_key(currentKey)
+
+        self.ring[currentKey] = DataNodeFactory.instance().getInMemoryDataNode(serverName)
+
+        if behideKey != currentKey:
+            behind = self.ring[behideKey]
+            current = self.ring[currentKey]
+            behind.moveKeys(current, currentKey, aheadKey)
+            # behind.compact()
 
     def removeServer(self, serverName):
-        self.servers.pop(serverName)
+        self.ring.pop(serverName)
         serverIndex = CommonUtil.findIndex(self.servePoints, lambda x: x[1] == serverName)
         if serverIndex is not None:
             del self.servePoints[serverIndex]
 
     def getServer(self, key: str) -> DataNode:
-        serverName = self.resolveServer(key)
-        return self.servers[serverName]
+        key = stableHash(key)
+        keyHash = self.ring.floor_key(key)
+        return self.ring[keyHash]
 
     def clusterSize(self):
-        return len(self.servers)
+        return len(self.ring)
 
     def resolveServer(self, key):
         keyIndex = toCacheIndex(key, self.cacheSize)
@@ -79,19 +102,17 @@ class DataNodeCluster:
         return self.servePoints[0][1]
 
     def printClusterDistribution(self):
-        print(self.servePoints)
-        for server in self.servers:
-            print("Server :", server, self.servers[server].capacity(), list(self.servers[server].cache.keys()))
+        print(self.ring)
+        for server in self.ring:
+            print("Server :", self.ring[server].name(), list(self.ring[server].cache.keys()))
 
     def computeTotalLoad(self):
-        totalSize = sum([self.servers[server].size() for server in self.servers])
+        totalSize = sum([self.ring[server].size() for server in self.ring])
         return totalSize / self.cacheSize
 
     def put(self, key, value):
-        dataNode = self.getServer(key)
-        if dataNode.load() > 0.25:
-            self.balance()
-        dataNode.put(key, value)
+        self.getServer(key).put(key, value)
+        self.balance()
 
     def get(self, key):
         return self.getServer(key).get(key)
@@ -111,7 +132,7 @@ if __name__ == "__main__":
 
     CACHE_SIZE = 8
 
-    sc = DataNodeCluster(CACHE_SIZE)
+    sc = ConsistentHashRing(CACHE_SIZE)
 
     # sc.balance()
     # print(sc.clusterSize(), sc.servePoints)

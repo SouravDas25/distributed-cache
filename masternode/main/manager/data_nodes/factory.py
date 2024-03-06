@@ -19,5 +19,5 @@ class DataNodeFactory:
         # return the singleton instance
         return cls.__singleton_instance
 
-    def getInMemoryDataNode(self, name, capacity) -> InMemoryDataNode:
-        return InMemoryDataNode(name, capacity)
+    def getInMemoryDataNode(self, name) -> InMemoryDataNode:
+        return InMemoryDataNode(name)
