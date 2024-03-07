@@ -68,3 +68,4 @@ class MedianHeap:
 
     def getMedian(self) -> float:
         return self.array[len(self.array) // 2]
+

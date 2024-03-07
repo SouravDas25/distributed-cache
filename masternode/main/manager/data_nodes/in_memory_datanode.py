@@ -42,3 +42,17 @@ class InMemoryDataNode(DataNode):
 
     def has(self, key: str):
         return key in self.cache
+
+    def remove(self, key):
+        return self.cache.pop(key)
+
+    def calculateMidKey(self):
+        return sum(map(lambda x: stableHash(x), self.cache.keys())) // self.cache.__len__()
+
+    def copyKeys(self, targetServer, fromKey, toKey):
+        for key in list(self.cache.keys()):
+            keyHash = stableHash(key)
+            if fromKey <= keyHash:
+                targetServer.put(key, self.cache[key])
+                # self.cache.pop(key)
+        pass

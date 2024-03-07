@@ -12,6 +12,8 @@ from masternode.main.manager.data_nodes.factory import DataNodeFactory
 from sortedcontainers import SortedDict
 
 MAX_SERVERS = 16
+MAX_SERVER_LOAD = 0.7
+SIZE_PER_NODE = 10
 
 
 class ConsistentHashRing:
@@ -20,9 +22,9 @@ class ConsistentHashRing:
         self.max_size = max_size
         self.ring: TreeDict[DataNode] = TreeDict()
         self.medianHeap = MedianHeap()
-        for i in range(MAX_SERVERS):
-            self.medianHeap.push(stableHash("data-server-" + str(i)))
-        self.medianHeap.push(0)
+        # for i in range(MAX_SERVERS):
+        #     self.medianHeap.push(stableHash("data-server-" + str(i)))
+        # self.medianHeap.push(0)
         # self.addServer("data-server-0")
         self.ring[0] = DataNodeFactory.instance().getInMemoryDataNode("data-server-0")
         # self.scheduler = BackgroundScheduler()
@@ -32,7 +34,8 @@ class ConsistentHashRing:
 
     def balance(self):
         print("RUNNING BALANCE")
-        balanceReq = []
+        overloadedServers = []
+        underloadedServers = []
 
         for serverKey in list(self.ring.key_set()):
             server = self.ring[serverKey]
@@ -41,50 +44,59 @@ class ConsistentHashRing:
             #     continue
             load = size / self.max_size
             print("{0}: load: {1}, datanode-size: {2}".format(server.name(), load, size))
-            if load > 0.3:
-                balanceReq.append(serverKey)
+            if load > MAX_SERVER_LOAD:
+                overloadedServers.append(serverKey)
+            elif load <= 0.1:
+                underloadedServers.append(serverKey)
 
-
-        for serverKey in balanceReq:
-            if serverKey == 0:
-                fromHash = serverKey
-                toHash = self.ring.last_key()
+        for serverKey in overloadedServers:
+            fromKey = serverKey
+            if serverKey == self.ring.last_key():
+                toKey = self.ring.first_key()
             else:
-                fromHash = self.ring.lower_key(serverKey)
-                toHash = serverKey
-            self.addServer(fromHash, toHash)
+                toKey = self.ring.higher_key(serverKey)
+            self.addServer(fromKey, toKey)
+
+        for serverKey in underloadedServers:
+            if serverKey != self.ring.first_key():
+                self.removeServer(serverKey)
 
         print("COMPLETING BALANCE")
         pass
 
-    def addServer(self, fromHash, toHash):
+    def addServer(self, fromKey, tokey):
         serverName = "data-server-" + str(len(self.ring))
         print("ADDING DATA-NODE ", serverName)
+        #
+        # currentKey = self.medianHeap.getMidKey(fromKey, tokey)
+        # if currentKey is None:
+        #     print("NO Current Key Found, end of fractal")
+        #     return
+        #
+        # if currentKey in self.ring:
+        #     return
 
-        currentKey = self.medianHeap.getMidKey(fromHash, toHash)
-        if currentKey is None:
-            print("NO Current Key Found, end of fractal")
-            return
+        behideServer = self.ring[fromKey]
+        aheadServer = self.ring[tokey]
 
-        if currentKey in self.ring:
-            return
+        currentKey = behideServer.calculateMidKey()
 
-        behideKey = self.ring.floor_key(currentKey)
-        aheadKey = self.ring.ceiling_key(currentKey)
+        currentServer = DataNodeFactory.instance().getInMemoryDataNode(serverName)
 
-        self.ring[currentKey] = DataNodeFactory.instance().getInMemoryDataNode(serverName)
+        self.ring[currentKey] = currentServer
 
-        if behideKey != currentKey:
-            behind = self.ring[behideKey]
-            current = self.ring[currentKey]
-            behind.moveKeys(current, currentKey, aheadKey)
+        if behideServer != currentKey:
+            behideServer.moveKeys(currentServer, currentKey, tokey)
             # behind.compact()
 
-    def removeServer(self, serverName):
-        self.ring.pop(serverName)
-        serverIndex = CommonUtil.findIndex(self.servePoints, lambda x: x[1] == serverName)
-        if serverIndex is not None:
-            del self.servePoints[serverIndex]
+    def removeServer(self, currentKey):
+        behideKey = self.ring.lower_key(currentKey)
+        if behideKey != self.ring.first_key():
+            currentServer = self.ring[currentKey]
+            currentServer.copyKeys(self.ring[behideKey], currentKey, None)
+            self.ring.remove(currentKey)
+            print("REMOVING DATA-NODE ", currentServer.serverName)
+        pass
 
     def getServer(self, key: str) -> DataNode:
         key = stableHash(key)
@@ -110,6 +122,11 @@ class ConsistentHashRing:
         totalSize = sum([self.ring[server].size() for server in self.ring])
         return totalSize / self.cacheSize
 
+    def remove(self, key):
+        print("Removing key : ", key)
+        self.getServer(key).remove(key)
+        self.balance()
+
     def put(self, key, value):
         self.getServer(key).put(key, value)
         self.balance()
@@ -130,9 +147,7 @@ if __name__ == "__main__":
         return ''.join(random.sample(string.ascii_uppercase + string.digits, N))
 
 
-    CACHE_SIZE = 8
-
-    sc = ConsistentHashRing(CACHE_SIZE)
+    sc = ConsistentHashRing(SIZE_PER_NODE)
 
     # sc.balance()
     # print(sc.clusterSize(), sc.servePoints)
@@ -140,12 +155,21 @@ if __name__ == "__main__":
     #     .map(lambda s: list(s.cache.keys())) \
     #     .for_each(print)
 
+    keys = []
+
     while True:
 
         for i in range(20):
             key = strGen(3)
-            print("key ", key, toCacheIndex(key, CACHE_SIZE))
+            print("key ", key, toCacheIndex(key, SIZE_PER_NODE))
             sc.put(key, i)
+            keys.append(key)
+
+        for i in range(20):
+            random.shuffle(keys)
+            key = keys[0]
+            if sc.has(key):
+                sc.remove(key)
 
         # print(sc.clusterSize(), sc.servePoints)
         sc.printClusterDistribution()

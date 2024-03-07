@@ -26,3 +26,11 @@ class DataNode(abc.ABC):
     @abc.abstractmethod
     def has(self, key):
         pass
+
+    @abc.abstractmethod
+    def calculateMidKey(self):
+        pass
+
+    @abc.abstractmethod
+    def copyKeys(self, targetServer, fromKey, toKey):
+        pass
