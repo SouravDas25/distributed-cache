@@ -1,4 +1,4 @@
-POST http://localhost:8080/save/apple
+POST https://ihmap_master-generous-hippopotamus-ov.cfapps.us10-001.hana.ondemand.com/save/apple
 Content-Type: application/json
 
 {
@@ -6,12 +6,12 @@ Content-Type: application/json
 }
 
 ###
-GET http://localhost:8080/retrieve/apple
+GET https://ihmap_master-generous-hippopotamus-ov.cfapps.us10-001.hana.ondemand.com/retrieve/apple
 Accept: application/json
 
 ###
 
-GET http://localhost:8080/contains/apple
+GET https://ihmap_master-generous-hippopotamus-ov.cfapps.us10-001.hana.ondemand.com/contains/apple
 Accept: application/json
 
 ###

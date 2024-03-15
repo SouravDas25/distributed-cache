@@ -7,4 +7,5 @@ RUN pip install -r requirements.txt
 #RUN ls -l
 #CMD [ "pwd" ]
 #CMD [ "main", "manage.py runserver 0.0.0.0:8000"
+EXPOSE 8080
 ENTRYPOINT python main/server.py

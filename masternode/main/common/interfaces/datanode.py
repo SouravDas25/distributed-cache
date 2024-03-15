@@ -8,11 +8,11 @@ class DataNode(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def compact(self, capacity):
+    def compactKeys(self, capacity):
         pass
 
     @abc.abstractmethod
-    def size(self):
+    def metrics(self):
         pass
 
     @abc.abstractmethod
@@ -33,4 +33,7 @@ class DataNode(abc.ABC):
 
     @abc.abstractmethod
     def copyKeys(self, targetServer, fromKey, toKey):
+        pass
+
+    def remove(self, key):
         pass

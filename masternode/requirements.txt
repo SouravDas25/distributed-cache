@@ -4,3 +4,8 @@ lazy-streams
 promise_keeper
 pylru
 apscheduler
+pytreemap
+requests
+psutil
+asyncio
+aiohttp

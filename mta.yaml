@@ -1,0 +1,77 @@
+ID: ihs-mtar
+_schema-version: '3.1'
+
+version: 1.0.0
+
+parameters:
+    buildpack-java: sap_java_buildpack
+    buildpack-nodejs: nodejs_buildpack
+    app-bundle: sample
+    custom-domain: ''
+    tenantHostPattern: '^(.*)-${space}-sample-ar${custom-domain}.${default-domain}'
+    getDependenciesURL: 'https://${org}-${space}-sample-java.${default-domain}/callback/v1.0/dependencies'
+    onSubscriptionURL: 'https://${org}-${space}-sample-java.${default-domain}/callback/v1.0/tenants/{tenantId}'
+    timeout-default-seconds: 600
+
+modules:
+    -   name: ihs-master
+        type: python
+        path: masternode
+        parameters:
+            host: ${org}-${space}-ihs-master
+            memory: 128M
+            buildpack: python_buildpack
+            health-check-timeout: 600
+            command: python main/server.py
+            properties:
+                TEST_VARIABLE: '{enabled: true}'
+        requires:
+            -   name: ihs-autoscaler
+
+    -   name: ihs-datanode
+        type: python
+        path: datanode
+        parameters:
+            host: ${org}-${space}-ihs-datanode
+            memory: 128M
+            buildpack: python_buildpack
+            health-check-timeout: 600
+            command: python main/server.py
+            properties:
+                TEST_VARIABLE: '{enabled: true}'
+                MASTER_NODE_URL: https://${org}-${space}-ihs-master.${default-domain}
+        requires:
+            -   name: ihs-autoscaler
+                parameters:
+                    config:
+                        instance_max_count: 10
+                        instance_min_count: 1
+                        scaling_rules:
+                            -   metric_type: scallingmetric
+                                breach_duration_secs: 60
+                                threshold: 90
+                                operator: ">="
+                                cool_down_secs: 120
+                                adjustment: "+1"
+                            -   metric_type: scallingmetric
+                                breach_duration_secs: 60
+                                threshold: 30
+                                operator: "<"
+                                cool_down_secs: 120
+                                adjustment: "-1"
+        deployed-after:
+            - ihs-master
+
+resources:
+    -   name: ihs-autoscaler
+        type: org.cloudfoundry.existing-service
+        parameters:
+            service: autoscaler
+            service-plan: standard
+
+
+#    -   name: sample-db
+#        type: org.cloudfoundry.managed-service # systempassword
+#        parameters:
+#            service: postgresql-db
+#            service-plan: trial

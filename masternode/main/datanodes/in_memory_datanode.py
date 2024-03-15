@@ -1,6 +1,4 @@
-import pylru
-
-from common.utils.hashing import toCacheIndex, stableHash
+from common.utils.hashing import stableHash
 from common.interfaces.datanode import DataNode
 
 
@@ -10,6 +8,9 @@ class InMemoryDataNode(DataNode):
         self.serverName = serverName
         self.cache = {}
         self.keysToBeRemoved = set()
+
+    def setName(self, serverName: str):
+        self.serverName = serverName
 
     def name(self):
         return self.serverName
@@ -31,8 +32,10 @@ class InMemoryDataNode(DataNode):
         self.cache = newCache
         self.keysToBeRemoved.clear()
 
-    def size(self):
-        return self.cache.__len__()
+    def metrics(self):
+        return {
+            "size": self.cache.__len__()
+        }
 
     def put(self, key, value):
         self.cache[key] = value

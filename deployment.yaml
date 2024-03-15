@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: ihs-master-deploy
+    labels:
+        type: restapi
+spec:
+    selector:
+        matchLabels:
+            app: ihs-master
+    replicas: 1
+    template:
+        metadata:
+            name: ihs-master-tmpl
+            labels:
+                app: ihs-master
+        spec:
+            containers:
+                -   name: ihs-master
+                    image: ihs-master:latest
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                        -   containerPort: 8080
+                    env:
+                        -   name: PORT
+                            value: "8080"
+                        -   name: MASTER_NODE
+                            value: "true"
+                    readinessProbe:
+                        initialDelaySeconds: 5
+                        periodSeconds: 5
+                        httpGet:
+                            path: /
+                            port: 8080
+---
+# services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+    name: ihs-master-svc
+spec:
+    type: LoadBalancer
+    selector:
+        app: ihs-master
+    ports:
+        -   protocol: "TCP"
+            port: 8000
+            targetPort: 8080
+
+---
+# hpa.yaml
+#apiVersion: autoscaling/v2beta2
+#kind: HorizontalPodAutoscaler
+#metadata:
+#    name: ihs-hpa
+#spec:
+#    scaleTargetRef:
+#        apiVersion: apps/v1
+#        kind: Deployment
+#        name: ihs-master
+#    minReplicas: 1
+#    maxReplicas: 10
+#    metrics:
+#        -   type: Pods
+#            pods:
+#                metric:
+#                    name: custom-metric-ihs
+#                target:
+#                    type: AverageValue
+#                    averageValue: 50
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+    name: ihs-datanode
+    labels:
+        type: restapi
+spec:
+    serviceName: "ihs-datanode"
+    selector:
+        matchLabels:
+            app: ihs-datanode
+    replicas: 1
+    template:
+        metadata:
+            name: ihs-datanode-tmpl
+            labels:
+                app: ihs-datanode
+        spec:
+            containers:
+                -   name: ihs-datanode
+                    image: ihs-datanode:latest
+                    imagePullPolicy: IfNotPresent
+                    resources:
+                        requests:
+                            memory: 32Mi
+                        limits:
+                            memory: 256Mi
+                    ports:
+                        -   containerPort: 8080
+                    env:
+                        -   name: PORT
+                            value: "8080"
+                        -   name: MASTER_NODE_URL
+                            value: "http://ihs-master-svc:8000"
+                        -   name: CF_INSTANCE_INDEX
+                            valueFrom:
+                                fieldRef:
+                                    fieldPath: metadata.labels['apps.kubernetes.io/pod-index']
+                        -   name: VCAP_APPLICATION
+                            value: >
+                                {
+                                    "application_name": "datanode-$(CF_INSTANCE_INDEX)",
+                                    "application_uris": [
+                                        "http://ihs-datanode-$(CF_INSTANCE_INDEX).ihs-datanode.default.svc.cluster.local:8080"
+                                    ],
+                                    "application_id": "node-$(CF_INSTANCE_INDEX)"
+                                }
+
+---
+# services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+    name: ihs-datanode
+spec:
+    clusterIP: "None"
+    selector:
+        app: ihs-datanode
+    ports:
+        -   protocol: "TCP"
+            port: 8080
+            targetPort: 8080

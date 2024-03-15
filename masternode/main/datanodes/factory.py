@@ -1,6 +1,8 @@
 import threading
 
-from masternode.main.manager.data_nodes.in_memory_datanode import InMemoryDataNode
+from common.interfaces.datanode import DataNode
+from .in_memory_datanode import InMemoryDataNode
+from .network_datanode import NetworkDataNode
 
 
 class DataNodeFactory:
@@ -20,4 +22,7 @@ class DataNodeFactory:
         return cls.__singleton_instance
 
     def getInMemoryDataNode(self, name) -> InMemoryDataNode:
+        return InMemoryDataNode(name)
+
+    def createDataNode(self, name: str) -> DataNode:
         return InMemoryDataNode(name)

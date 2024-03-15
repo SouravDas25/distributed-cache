@@ -4,3 +4,6 @@ flask
 # promise_keeper
 pylru
 # apscheduler
+requests
+psutil
+aiohttp

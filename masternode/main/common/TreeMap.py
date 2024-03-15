@@ -1,7 +1,11 @@
 from pytreemap import TreeMap
 
+from typing import TypeVar, Generic
 
-class TreeDict(TreeMap):
+T = TypeVar('T')
+
+
+class TreeDict(TreeMap, Generic[T]):
 
     def __init__(self):
         super(TreeDict, self).__init__()
