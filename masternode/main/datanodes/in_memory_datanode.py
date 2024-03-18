@@ -1,21 +1,31 @@
-from common.utils.hashing import stableHash
-from common.interfaces.datanode import DataNode
+from masternode.main.common.utils.hashing import stableHash
+from masternode.main.datanodes.datanode import DataNode
 
 
 class InMemoryDataNode(DataNode):
 
-    def __init__(self, serverName: str):
-        self.serverName = serverName
+    def __init__(self, server_name: str, instance_no: int):
+        self.server_name = server_name
         self.cache = {}
         self.keysToBeRemoved = set()
+        self.ins_no = instance_no
 
-    def setName(self, serverName: str):
-        self.serverName = serverName
+    def update_node(self, node):
+        pass
+
+    async def health_check(self) -> bool:
+        return True
+
+    def instance_no(self) -> int:
+        return self.ins_no
+
+    def size(self, cache=True):
+        return len(self.cache)
 
     def name(self):
-        return self.serverName
+        return self.server_name
 
-    def moveKeys(self, targetServer, fromHash, toHash):
+    def move_keys(self, targetServer, fromHash, toHash):
         for key in list(self.cache.keys()):
             keyHash = stableHash(key)
             if fromHash <= keyHash:
@@ -24,12 +34,10 @@ class InMemoryDataNode(DataNode):
                 self.keysToBeRemoved.add(key)
         # print(removeKeys)
 
-    def compact(self):
-        newCache = {}
+    def compact_keys(self):
         for key in list(self.cache.keys()):
             if key not in self.keysToBeRemoved:
-                newCache[key] = self.cache[key]
-        self.cache = newCache
+                self.cache.pop(key)
         self.keysToBeRemoved.clear()
 
     def metrics(self):
@@ -49,7 +57,7 @@ class InMemoryDataNode(DataNode):
     def remove(self, key):
         return self.cache.pop(key)
 
-    def calculateMidKey(self):
+    def calculate_mid_key(self):
         return sum(map(lambda x: stableHash(x), self.cache.keys())) // self.cache.__len__()
 
     def copyKeys(self, targetServer, fromKey, toKey):

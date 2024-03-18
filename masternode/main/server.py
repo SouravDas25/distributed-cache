@@ -1,5 +1,11 @@
 import json
 import os
+import sys
+
+# package resolution
+SCRIPT_DIR = os.path.dirname(os.path.abspath(os.path.join(__file__, "../../")))
+print("package_path :", SCRIPT_DIR)
+sys.path.append(SCRIPT_DIR)
 
 from flask import Flask, request
 
@@ -19,7 +25,7 @@ def hello_world():
 def post_new_instance():
     data = request.get_json()
     datanode = NetworkDataNode(data["application_name"], data["instanceId"], data["application_url"], data["appId"])
-    distributedCache.serverCluster.addFreeInstance(datanode.appId, datanode)
+    distributedCache.ring.add_free_node(datanode.app_id, datanode)
     print("Discovered instance", data)
     return json.dumps({"success": True})
 
@@ -76,6 +82,23 @@ def save(key):
         return_msg = json.dumps({"status": "saved"})
         status = 200
     except:
+        return_msg = json.dumps({"status": "failed"})
+        status = 400
+    return app.response_class(
+        response=return_msg,
+        status=status,
+        mimetype='application/json'
+    )
+
+
+@app.route('/status/', methods=['GET'])
+def status():
+    try:
+        data = distributedCache.status()
+        return_msg = json.dumps(data)
+        status = 200
+    except Exception as e:
+        print("Error in status: ", e)
         return_msg = json.dumps({"status": "failed"})
         status = 400
     return app.response_class(

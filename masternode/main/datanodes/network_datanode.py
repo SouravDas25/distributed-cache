@@ -2,26 +2,50 @@ import asyncio
 import json
 
 import requests
-from common.utils.hashing import stableHash
-from common.interfaces.datanode import DataNode
+from masternode.main.common.utils.hashing import stableHash
+from masternode.main.datanodes.datanode import DataNode
 import aiohttp
 
 
 class NetworkDataNode(DataNode):
 
-    def __init__(self, serverName: str, instance_id: str, appUrl: str, appId: str):
-        self.serverName = serverName
-        self.instance_id = instance_id
-        self.appId = appId
-        self.appUrl = appUrl
-        self.url = f"{appUrl}"
-        self.cachedMetric = {}
+    def __init__(self, server_name: str, instance_id: int, app_url: str, app_id: str):
+        self.server_name = server_name
+        self.instance_id = int(instance_id)
+        self.app_id = app_id
+        self.app_url = app_url
+        self.url = f"{app_url}"
+        self.cached_metric = {}
 
-    def getUrl(self):
+    def update_node(self, new_node: DataNode):
+        self.app_url = new_node.app_url
+        self.app_id = new_node.app_id
+        self.url = new_node.url
+
+    def instance_no(self) -> int:
+        return self.instance_id
+
+    def size(self, cache=True):
+        return self.cached_metric["size"] if "size" in self.cached_metric else 0
+        pass
+
+    def get_url(self):
         return self.url
 
     def name(self):
-        return self.serverName
+        return self.server_name
+
+    async def health_check(self):
+        url = f"{self.url}/health/"
+        headers = {"Accept": "application/json"}
+        try:
+            # Make the GET request
+            response = await asyncio.to_thread(requests.get, url=url, headers=headers, verify=False)
+
+            # Check the response status code
+            return response.status_code == 200
+        except:
+            return False
 
     def put(self, key, value):
         url = f"{self.url}/save/{key}"
@@ -76,7 +100,7 @@ class NetworkDataNode(DataNode):
         except Exception as e:
             print("GET request failed with status code:", e)
 
-    def calculateMidKey(self):
+    def calculate_mid_key(self):
         url = f"{self.url}/calculate-mid-key/"
         headers = {"Accept": "application/json"}
 
@@ -100,23 +124,23 @@ class NetworkDataNode(DataNode):
             # "X-Cf-App-Instance": str(self.instance_id)
         }
 
-        print("getting metrics ", self.serverName)
+        print("getting metrics ", self.server_name)
         # Make the POST request
         try:
             response = requests.get(url, headers=headers, verify=False)
 
-            self.cachedMetric = response.json()
+            self.cached_metric = response.json()
             print("POST request successful")
-            return self.cachedMetric
+            return self.cached_metric
         except Exception as e:
             print("POST request failed with status code:", e)
 
-    async def moveKeys(self, targetServer, fromKey, toKey):
+    async def move_keys(self, targetServer, fromKey, toKey):
 
         url = f"{self.url}/copy-keys/"
         payload = {
             "targetServer": {
-                "url": targetServer.getUrl(),
+                "url": targetServer.get_url(),
                 "name": targetServer.name()
             },
             "fromKey": fromKey,
@@ -138,7 +162,7 @@ class NetworkDataNode(DataNode):
             print("POST request failed with status code:", e)
         pass
 
-    async def compactKeys(self):
+    async def compact_keys(self):
         url = f"{self.url}/compact-keys/"
         headers = {"Accept": "application/json"}
 

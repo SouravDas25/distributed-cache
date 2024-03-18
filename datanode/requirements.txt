@@ -7,3 +7,5 @@ pylru
 requests
 psutil
 aiohttp
+loguru
+apscheduler

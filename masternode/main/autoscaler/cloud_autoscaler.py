@@ -1,7 +1,7 @@
 import requests
 from requests.auth import HTTPBasicAuth
 
-from .autoscaler import  Autoscaler
+from masternode.main.autoscaler.autoscaler import Autoscaler
 
 credentials = {
     "username": "sbss_dljpwkw6briclznscyg256pa0za7rc5a/93llnhr3r68z55g96adulgam+ofkaaldsq=",
@@ -14,12 +14,12 @@ class CfAutoscaler(Autoscaler):
 
     def __init__(self):
         super().__init__()
-        self.url = f"{credentials["url"]}/v1/apps/cb12c3c6-be5c-4b33-88ea-fbc148499059/metrics"
+        self.url = f"{credentials["url"]}/v1/apps/cb12c3c6-be5c-4b33-88ea-fbc148499059/metrics.txt"
 
     def upscale(self):
         body = {
             "instance_index": 0,
-            "metrics": [
+            "metrics.txt": [
                 {
                     "name": "scallingmetric",
                     "value": 100,
@@ -41,7 +41,7 @@ class CfAutoscaler(Autoscaler):
     def downscale(self):
         body = {
             "instance_index": 0,
-            "metrics": [
+            "metrics.txt": [
                 {
                     "name": "scallingmetric",
                     "value": 0,

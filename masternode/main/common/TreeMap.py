@@ -12,10 +12,25 @@ class TreeDict(TreeMap, Generic[T]):
 
 
 if __name__ == "__main__":
-    d = TreeDict()
-    for i in range(1, 15, 2):
-        d.put(i, "TEMP")
-    print(d)
+    bst = TreeDict()
 
-    print(d.floor_key(3))
-    print(d.lower_key(3))
+    for i in range(0, 150, 5):
+        bst.put(i, f"Value {i}")
+
+    print(bst)
+    # {0=Value 0, 5=Value 5, 10=Value 10, 15=Value 15 ... }
+
+    print(bst.get(50))
+    # Value 50
+
+    print(bst.lower_key(10))
+    # Value 5
+
+    print(bst.higher_key(10))
+    # Value 15
+
+    print(bst.lower_entry(6))
+    # 5=Value 5
+
+    print(bst.higher_entry(6))
+    # 10=Value 10

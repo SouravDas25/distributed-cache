@@ -1,36 +1,45 @@
-from ring import ConsistentHashRing
+import os
+
+from masternode.main.autoscaler.autoscaler_factory import create_autoscaler
+from masternode.main.ring import ConsistentHashRing
 
 
 class CacheConfig:
 
     def __init__(self):
         self.config = ""
-        self.cacheSize = 10
+        self.cacheSize = int(os.environ.get("CACHE_SIZE", 2))
         self.scaleFactor = 2
+        self.autoscaler_type = os.environ.get("AUTOSCALER_TYPE", "LOCAL")
 
 
 class DistributedCache:
 
     def __init__(self):
         self.config = CacheConfig()
-        self.serverCluster = ConsistentHashRing(self.config.cacheSize)
+        self.autoscaler = create_autoscaler(self.config.autoscaler_type, self)
+        self.ring = ConsistentHashRing(self.config.cacheSize, self.autoscaler)
 
     def put(self, key, value):
-        server = self.serverCluster.getServer(key)
-        print(f"Server for key {key} : {server.name()}")
-        server.put(key, value)
+        node = self.ring.get_node(key)
+        print(f"Server for key {key} : {node.name()}")
+        node.put(key, value)
 
     def get(self, key):
-        server = self.serverCluster.getServer(key)
-        return server.get(key)
+        node = self.ring.get_node(key)
+        return node.get(key)
 
     def has(self, key):
-        server = self.serverCluster.getServer(key)
-        return server.has(key)
+        node = self.ring.get_node(key)
+        return node.has(key)
 
     def remove(self, key):
-        server = self.serverCluster.getServer(key)
-        return server.remove(key)
+        node = self.ring.get_node(key)
+        return node.remove(key)
+
+    def status(self):
+        return self.ring.status()
+        pass
 
 
 if __name__ == "__main__":

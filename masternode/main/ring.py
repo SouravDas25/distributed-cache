@@ -1,18 +1,50 @@
 import asyncio
+from collections import OrderedDict
 from time import sleep
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from sortedcontainers import SortedDict
 
-from common.TreeMap import TreeDict
-from common.interfaces.datanode import DataNode
-from common.utils.hashing import toCacheIndex, stableHash
-from datanodes.factory import DataNodeFactory
-from autoscaler.autoscaler_factory import createAutoScaler
-from datanodes.network_datanode import NetworkDataNode
+from masternode.main.autoscaler.autoscaler import Autoscaler
+from masternode.main.common.TreeMap import TreeDict
+from masternode.main.datanodes.datanode import DataNode
+from masternode.main.common.utils.hashing import toCacheIndex, stableHash
+from masternode.main.autoscaler.autoscaler_factory import create_autoscaler
+from loguru import logger as LOGGER
 
 MAX_SERVERS = 16
 MAX_SERVER_LOAD = 0.7
-SIZE_PER_NODE = 10
+SIZE_PER_NODE = 2
+
+
+class FreeNodeManager:
+
+    def __init__(self, ring):
+        self.free_nodes = SortedDict()
+        self.ring = ring
+        pass
+
+    def size(self):
+        return self.free_nodes.__len__()
+
+    def add_free_node(self, node: DataNode) -> None:
+        instance_no = node.instance_no()
+        if self.ring.has_node(node):
+            self.ring.update_node(node)
+        else:
+            self.free_nodes[instance_no] = node
+
+    def max_node(self) -> DataNode:
+        instance_no = max(self.free_nodes.keys())
+        return self.free_nodes.get(instance_no)
+
+    def pop(self) -> DataNode:
+        instance_no = min(self.free_nodes.keys())
+        return self.free_nodes.pop(instance_no)
+
+    def remove(self, instance_no: int) -> None:
+        self.free_nodes.pop(instance_no)
+        pass
 
 
 class ConsistentHashRing:
@@ -20,183 +52,227 @@ class ConsistentHashRing:
     def __del__(self):
         self.scheduler.shutdown()
 
-    def __init__(self, max_size: int) -> None:
+    def __init__(self, max_size: int, autoscaler: Autoscaler) -> None:
         self.max_size = max_size
-        self.ring: TreeDict[DataNode] = TreeDict()
+        self.bst: TreeDict[DataNode] = TreeDict()
         self.is_job_running = False
-        # for i in range(MAX_SERVERS):
-        #     self.medianHeap.push(stableHash("data-server-" + str(i)))
-        # self.medianHeap.push(0)
-        # self.addServer("data-server-0")
-        # self.ring[0] = NetworkDataNode("primary-node", 0, "")
         self.scheduler = BackgroundScheduler()
-        self.scheduler.add_job(lambda: self.job(), "interval", seconds=30)
+        self.scheduler.add_job(lambda: self.job(), "interval", seconds=10)
         self.scheduler.start()
-        self.autoscaler = createAutoScaler("CF", self)
-        self.freeInstances = {}
-
-        # self.addServer("data-server-1", "")
+        self.autoscaler = autoscaler
+        self.fn_manager = FreeNodeManager(self)
 
     def job(self):
         if not self.is_job_running:
-            print("Job not running")
+            LOGGER.info("Job not running")
             self.is_job_running = True
             try:
+                LOGGER.info("RUNNING BALANCE")
                 asyncio.run(self.balance())
+                LOGGER.info("COMPLETING BALANCE")
             finally:
                 self.is_job_running = False
         else:
-            print("Job running")
+            LOGGER.info("Job running")
         pass
 
-    def addFreeInstance(self, instance_id: str, instance: DataNode) -> None:
-        currentKey = stableHash(instance_id)
-        if currentKey not in self.ring:
-            self.freeInstances[instance_id] = instance
-        else:
-            self.ring[currentKey] = instance
+    def has_node(self, new_node: DataNode) -> bool:
+        return self.get_node_key(new_node) is not None
 
-    def getFreeInstance(self) -> DataNode:
-        instance_id = list(self.freeInstances.keys())[0]
-        return self.freeInstances.pop(instance_id)
+    def get_node_key(self, new_node: DataNode) -> str | None:
+        for node_key in list(self.bst.key_set()):
+            node = self.bst.get(node_key)
+            if node.name() == new_node.name():
+                return node_key
+        return None
+
+    def update_node(self, new_node: DataNode):
+        node_key = self.get_node_key(new_node)
+        if node_key:
+            node = self.bst.get(node_key)
+            node.update_node(new_node)
+        pass
+
+    def add_free_node(self, new_node: DataNode) -> None:
+        self.fn_manager.add_free_node(new_node)
+
+    def get_free_node(self) -> DataNode:
+        return self.fn_manager.pop()
+
+    def get_max_node(self) -> (DataNode, str):
+        instance_no = float("-inf")
+        max_node = None
+        max_node_key = None
+        for node_key in list(self.bst.key_set()):
+            node: DataNode = self.bst.get(node_key)
+            if instance_no < node.instance_no():
+                max_node = node
+                max_node_key = node_key
+                instance_no = node.instance_no()
+        return max_node, max_node_key
+
+    async def down_scale(self):
+        if self.fn_manager.size() > 1:
+            free_node = self.get_free_node()
+            max_node_from_ring, ring_node_key = self.get_max_node()
+            max_free_node = self.fn_manager.max_node()
+
+            if max_node_from_ring.instance_no() > max_free_node.instance_no():
+                try:
+                    response = await max_node_from_ring.move_keys(free_node, ring_node_key, "")
+                    if response["success"]:
+                        self.bst[ring_node_key] = free_node
+                    LOGGER.info("REMOVE from ring {}, {} ", max_node_from_ring.name(), ring_node_key)
+                except Exception as e:
+                    LOGGER.exception("REMOVE from ring Failed: {}, {} ", max_node_from_ring.name(), ring_node_key, e)
+            else:
+                if free_node != max_free_node:
+                    self.fn_manager.remove(max_free_node.instance_no())
+                    LOGGER.info("REMOVE Free Server: {} ", max_free_node.name())
+                    self.autoscaler.downscale()
+                pass
+            pass
+        pass
 
     async def balance(self):
-        print("RUNNING BALANCE")
 
-        if self.ring.__len__() <= 0:
-            if len(self.freeInstances.keys()) > 0:
-                self.ring[0] = self.getFreeInstance()
-            print("No Datanode found.")
+        if self.bst.__len__() <= 0:
+            if self.fn_manager.size() > 0:
+                node = self.get_free_node()
+                from_key = stableHash(node.name())
+                self.bst.put(from_key, node)
+                LOGGER.info("Adding first node to ring {}, {} ", from_key, node.name())
+            LOGGER.info("No Datanode found.")
+            return
             pass
-        else:
-            overloadedServers = []
-            underloadedServers = []
 
-            for serverKey in list(self.ring.key_set()):
-                server = self.ring[serverKey]
-                metrics = await server.metrics()
-                size = metrics["size"]
-                # if size <= 0:
-                #     continue
-                load = size / self.max_size
-                print(f"{server.name()} metrics : {metrics}")
-                print(f"{server.name()} load : {load}")
-                if load > MAX_SERVER_LOAD:
-                    overloadedServers.append(serverKey)
-                elif load <= 0.1:
-                    underloadedServers.append(serverKey)
+        overloaded_servers = SortedDict()
+        underloaded_servers = SortedDict()
 
-            awaitServers = []
+        for from_key in list(self.bst.key_set()):
+            node = self.bst.get(from_key)
+            metrics = await node.metrics()
+            load = metrics["size"] / self.max_size
+            LOGGER.info(f"{node.name()} metrics : {metrics}")
+            LOGGER.info(f"{node.name()} load : {load}")
+            if load > MAX_SERVER_LOAD:
+                overloaded_servers[load] = from_key
+            elif load <= 0.1:
+                underloaded_servers[load] = from_key
 
-            for serverKey in overloadedServers:
+        await_servers = []
 
-                fromKey = serverKey
-                if serverKey == self.ring.last_key():
-                    toKey = self.ring.first_key()
-                else:
-                    toKey = self.ring.higher_key(serverKey)
-                if self.freeInstances.__len__() > 0:
-                    awaitServers.append(self.addServer(fromKey, toKey))
-                else:
-                    # self.autoscaler.upscale()
-                    pass
+        for load in reversed(overloaded_servers.keys()):
+            # maximum loaded node first
+            from_key = overloaded_servers[load]
+            if from_key == self.bst.last_key():
+                to_key = self.bst.first_key()
+            else:
+                to_key = self.bst.higher_key(from_key)
+            if self.fn_manager.size() > 0:
+                await_servers.append(self.add_server(from_key, to_key))
+            else:
+                self.autoscaler.upscale()
+                pass
 
+        for load in list(underloaded_servers.keys()):
+            # least loaded servers first
+            from_key = underloaded_servers[load]
+            if from_key != self.bst.first_key():
+                await_servers.append(self.remove_server(from_key))
 
+        await asyncio.gather(*await_servers)
 
-            for serverKey in underloadedServers:
-                if serverKey != self.ring.first_key():
-                    awaitServers.append(self.removeServer(serverKey))
+        await self.down_scale()
 
-            await asyncio.gather(*awaitServers)
-
-        print("COMPLETING BALANCE")
         pass
 
-    async def addServer(self, fromKey, tokey):
+    async def add_server(self, from_key, to_key):
         # check if server is active and ready yet
 
-        behideServer = self.ring[fromKey]
-        aheadServer = self.ring[tokey]
+        behind_server = self.bst.get(from_key)
+        ahead_server = self.bst.get(to_key)
 
-        if self.freeInstances.__len__() <= 0:
+        if self.fn_manager.size() <= 0:
+            LOGGER.info("Free node available!!")
             return
 
-        currentServer = self.getFreeInstance()
-
-        currentKey = behideServer.calculateMidKey()
-        serverName = currentServer.name()
-
-        if behideServer == currentKey:
+        free_node = self.get_free_node()
+        is_available = await free_node.health_check()
+        if not is_available:
             return
 
-        print("ADDING DATA-NODE ", serverName)
+        node_key = behind_server.calculate_mid_key()
+        server_name = free_node.name()
 
-        # self.on_going_scaling_servers[serverName] = {
-        #     "assignedKey": currentKey,
-        #     "behindKey": fromKey,
-        #     "toKey": tokey,
-        #     "server": currentServer
-        # }
+        if from_key == node_key:
+            return
 
-        # currentServer.setName(serverName)
-
-        # self.ring[currentKey] = currentServer
+        LOGGER.info("ADDING DATA-NODE for ", behind_server.name())
         try:
-            response = await behideServer.moveKeys(currentServer, currentKey, tokey)
+            LOGGER.info(f"moving data from: {behind_server.name()} -> {server_name}")
+            response = await behind_server.move_keys(free_node, node_key, to_key)
             if response["success"]:
-                self.ring[currentKey] = currentServer
-                await behideServer.compactKeys()
+                self.bst[node_key] = free_node
+                await behind_server.compact_keys()
             else:
-                self.addFreeInstance(currentServer.appId, currentServer)
+                LOGGER.error(f"moving data failed for: {behind_server.name()} -> {server_name}")
+                self.add_free_node(free_node)
 
-        except:
-            self.addFreeInstance(currentServer.appId, currentServer)
+        except Exception as e:
+            self.add_free_node(free_node)
+            LOGGER.exception("Exception while adding node, ", e)
 
         pass
 
-    async def removeServer(self, currentKey):
-        behideKey = self.ring.lower_key(currentKey)
-        if behideKey != self.ring.first_key():
-            currentServer = self.ring[currentKey]
-            response = await currentServer.moveKeys(self.ring[behideKey], currentKey, None)
-            self.ring.remove(currentKey)
-            await currentServer.compactKeys()
-            self.addFreeInstance(currentServer.appId, currentServer)
-            print("REMOVING DATA-NODE ", currentServer.serverName)
+    async def remove_server(self, currentKey):
+        behideKey = self.bst.lower_key(currentKey)
+        if currentKey != self.bst.first_key():
+            currentServer = self.bst[currentKey]
+            response = await currentServer.move_keys(self.bst[behideKey], currentKey, None)
+            self.bst.remove(currentKey)
+            await currentServer.compact_keys()
+            self.add_free_node(currentServer.app_id, currentServer)
+            LOGGER.info("REMOVING DATA-NODE ", currentServer.server_name)
         pass
 
-    def getServer(self, key: str) -> DataNode:
+    def get_node(self, key: str) -> DataNode:
         key = stableHash(key)
-        keyHash = self.ring.floor_key(key)
-        return self.ring[keyHash]
-
-    def clusterSize(self):
-        return len(self.ring)
-
-    def printClusterDistribution(self):
-        print("Total Load: ", self.load())
-        print(self.ring)
-        for server in self.ring:
-            print("Server :", self.ring[server].name(), list(self.ring[server].distributedCache.keys()))
+        keyHash = self.bst.floor_key(key)
+        if keyHash is None:
+            keyHash = self.bst.last_key()
+        return self.bst[keyHash]
 
     def load(self):
-        return sum([self.ring[server].size() / self.max_size for server in self.ring]) / self.ring.__len__()
+        return sum([self.bst[server].size() / self.max_size for server in self.bst]) / self.bst.__len__()
 
-    def remove(self, key):
-        print("Removing key : ", key)
-        self.getServer(key).remove(key)
-        # self.balance()
+    def status(self):
+        ring = []
+        for serverKey in list(self.bst.key_set()):
+            server = self.bst[serverKey]
+            ring.append({
+                "node_key": serverKey,
+                "node_name": server.name(),
+                "instance_id": server.instance_id,
+                "appId": server.app_id,
+                "load": server.size() / self.max_size,
+                "metric": server.cached_metric
+            })
+            pass
 
-    def put(self, key, value):
-        node = self.getServer(key)
-        node.put(key, value)
-        # self.balance()
+        free_nodes = []
+        for server in self.freeInstances.values():
+            free_nodes.append({
+                "node_name": server.name(),
+                "instance_id": server.instance_id,
+                "appId": server.app_id
+            })
 
-    def get(self, key):
-        return self.getServer(key).get(key)
-
-    def has(self, key: str):
-        return self.getServer(key).has(key)
+        return {
+            "ring": ring,
+            "free_nodes": free_nodes
+        }
+        pass
 
 
 if __name__ == "__main__":
@@ -208,7 +284,7 @@ if __name__ == "__main__":
         return ''.join(random.sample(string.ascii_uppercase + string.digits, N))
 
 
-    sc = ConsistentHashRing(SIZE_PER_NODE)
+    sc = ConsistentHashRing(SIZE_PER_NODE, "LOCAL")
 
     # sc.balance()
     # print(sc.clusterSize(), sc.servePoints)

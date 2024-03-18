@@ -9,3 +9,6 @@ requests
 psutil
 asyncio
 aiohttp
+kubernetes
+sortedcontainers
+loguru

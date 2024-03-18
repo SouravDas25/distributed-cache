@@ -1,8 +1,11 @@
 import json
 import os
+import time
+from datetime import datetime
 
 import psutil
 import requests
+from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, request, Response
 
 from LRUCache import LRUCache
@@ -18,6 +21,7 @@ VCAP_SERVICES = json.loads(os.getenv('VCAP_SERVICES', '{}'))
 VCAP_APPLICATION = json.loads(os.getenv('VCAP_APPLICATION', '{}'))
 MASTER_NODE_URL = os.environ.get('MASTER_NODE_URL', "")
 
+LAST_REQ_TIME = datetime.now()
 
 def post_to_masternode():
     url = f"{MASTER_NODE_URL}/post-new-instance"
@@ -35,6 +39,13 @@ def post_to_masternode():
         print("ERROR registering instance : ", e)
 
 
+def background_ping_job():
+    time_difference = datetime.now() - LAST_REQ_TIME
+    if time_difference.seconds >= 60:
+        post_to_masternode()
+    return
+
+
 def post_copy_completion(name):
     url = f"{MASTER_NODE_URL}/post-copy-completion"
     body = {
@@ -48,9 +59,20 @@ def post_copy_completion(name):
     pass
 
 
+@app.before_request
+def before_request():
+    global LAST_REQ_TIME
+    LAST_REQ_TIME = datetime.now()
+    pass
+
 @app.route("/")
 def hello_world():
     return "<p>Hello, World!</p>"
+
+
+@app.route("/health/")
+def health_check():
+    return {"status": "active"}
 
 
 @app.route('/metrics/', methods=['GET'])
@@ -65,6 +87,7 @@ def metrics():
     }
     return metrics
 
+
 @app.route('/remove/<key>', methods=['GET'])
 def remove(key):
     if cache.has(key):
@@ -74,6 +97,7 @@ def remove(key):
         status=404,
         mimetype='application/json'
     )
+
 
 @app.route('/retrieve/<key>', methods=['GET'])
 def retrieve(key):
@@ -149,5 +173,11 @@ def compactKeys():
 if __name__ == "__main__":
     PORT = os.getenv('PORT', 8080)
 
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(lambda: background_ping_job(), "interval", seconds=10)
+    scheduler.start()
     post_to_masternode()
+
     app.run(debug=False, port=PORT, host="0.0.0.0")
+
+    scheduler.shutdown()

@@ -1,9 +1,12 @@
-from .autoscaler import LocalAutoscaler
-from .cloud_autoscaler import CfAutoscaler
+from masternode.main.autoscaler.in_mem_autoscaler import LocalAutoscaler
+from masternode.main.autoscaler.cloud_autoscaler import CfAutoscaler
+from masternode.main.autoscaler.k8s_autoscaler import K8sAutoscaler
 
 
-def createAutoScaler(autoscalerType, ch):
-    if autoscalerType == "LOCAL":
+def create_autoscaler(autoscaler_type, ch):
+    if autoscaler_type == "LOCAL":
         return LocalAutoscaler(ch)
+    elif autoscaler_type == "K8S":
+        return K8sAutoscaler(ch)
     else:
         return CfAutoscaler()
