@@ -8,6 +8,7 @@ from masternode.main.autoscaler.autoscaler import Autoscaler
 from kubernetes import client, config
 
 TIMEOUT_SEC = 10
+from loguru import logger as LOGGER
 
 
 class K8sAutoscaler(Autoscaler):
@@ -24,11 +25,11 @@ class K8sAutoscaler(Autoscaler):
             self.LAST_CALLED_AT = datetime.now()
             data = self.api.read_namespaced_stateful_set_status("ihs-datanode", "default")
 
-            print(data.status)
+            LOGGER.info("k8s status : {}", data.status)
 
             body = {'spec': {'replicas': data.status.current_replicas + 1}}
             self.api.patch_namespaced_stateful_set_scale("ihs-datanode", "default", body)
-
+            LOGGER.info("Up scaling: no of nodes: {}", data.status.current_replicas + 1)
         pass
 
     def downscale(self):

@@ -9,11 +9,12 @@ sys.path.append(SCRIPT_DIR)
 
 from flask import Flask, request
 
-from cache import DistributedCache
+from cache import DistributedCache, CacheConfig
 from datanodes.network_datanode import NetworkDataNode
 
+config = CacheConfig()
 app = Flask(__name__)
-distributedCache = DistributedCache()
+distributed_cache = DistributedCache(config)
 
 
 @app.route("/")
@@ -25,7 +26,7 @@ def hello_world():
 def post_new_instance():
     data = request.get_json()
     datanode = NetworkDataNode(data["application_name"], data["instanceId"], data["application_url"], data["appId"])
-    distributedCache.ring.add_free_node(datanode.app_id, datanode)
+    distributed_cache.ring.add_free_node(datanode)
     print("Discovered instance", data)
     return json.dumps({"success": True})
 
@@ -40,8 +41,8 @@ def post_copy_completion():
 
 @app.route('/retrieve/<key>', methods=['GET'])
 def retrieve(key):
-    if distributedCache.has(key):
-        return distributedCache.get(key)
+    if distributed_cache.has(key):
+        return distributed_cache.get(key)
     return app.response_class(
         response="not found",
         status=404,
@@ -51,7 +52,7 @@ def retrieve(key):
 
 @app.route('/contains/<key>', methods=['GET'])
 def contains(key):
-    if distributedCache.has(key):
+    if distributed_cache.has(key):
         return app.response_class(
             response='{"available": true}',
             status=200,
@@ -66,7 +67,7 @@ def contains(key):
 
 @app.route('/remove/<key>', methods=['POST'])
 def remove(key):
-    distributedCache.remove(key)
+    distributed_cache.remove(key)
     return app.response_class(
         response=json.dumps({"status": "removed successfully"}),
         status=200,
@@ -78,7 +79,7 @@ def remove(key):
 def save(key):
     value = request.get_json()
     try:
-        distributedCache.put(key, value)
+        distributed_cache.put(key, value)
         return_msg = json.dumps({"status": "saved"})
         status = 200
     except:
@@ -94,7 +95,7 @@ def save(key):
 @app.route('/status/', methods=['GET'])
 def status():
     try:
-        data = distributedCache.status()
+        data = distributed_cache.status()
         return_msg = json.dumps(data)
         status = 200
     except Exception as e:
@@ -109,5 +110,5 @@ def status():
 
 
 if __name__ == "__main__":
-    PORT = os.getenv('PORT', 8001)
+    PORT = os.getenv('PORT', 8091)
     app.run(debug=False, port=PORT, host="0.0.0.0")

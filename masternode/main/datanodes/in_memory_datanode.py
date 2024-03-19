@@ -7,7 +7,7 @@ class InMemoryDataNode(DataNode):
     def __init__(self, server_name: str, instance_no: int):
         self.server_name = server_name
         self.cache = {}
-        self.keysToBeRemoved = set()
+        self.keys_to_remove = set()
         self.ins_no = instance_no
 
     def update_node(self, node):
@@ -25,22 +25,30 @@ class InMemoryDataNode(DataNode):
     def name(self):
         return self.server_name
 
-    def move_keys(self, targetServer, fromHash, toHash):
+    async def move_keys(self, target_node, from_key, to_key):
         for key in list(self.cache.keys()):
-            keyHash = stableHash(key)
-            if fromHash <= keyHash:
-                targetServer.put(key, self.cache[key])
-                self.cache.pop(key)
-                self.keysToBeRemoved.add(key)
+            key_hash = stableHash(key)
+            if from_key <= key_hash:
+                target_node.put(key, self.cache[key])
+                # self.cache.pop(key)
+                self.keys_to_remove.add(key)
         # print(removeKeys)
+        return {
+            "success": True
+        }
 
-    def compact_keys(self):
+    async def compact_keys(self):
         for key in list(self.cache.keys()):
-            if key not in self.keysToBeRemoved:
+            if key in self.keys_to_remove:
                 self.cache.pop(key)
-        self.keysToBeRemoved.clear()
+        self.keys_to_remove.clear()
 
-    def metrics(self):
+    async def metrics(self, cache=True):
+        return {
+            "size": self.cache.__len__()
+        }
+
+    def cached_metrics(self):
         return {
             "size": self.cache.__len__()
         }
@@ -57,13 +65,5 @@ class InMemoryDataNode(DataNode):
     def remove(self, key):
         return self.cache.pop(key)
 
-    def calculate_mid_key(self):
+    async def calculate_mid_key(self):
         return sum(map(lambda x: stableHash(x), self.cache.keys())) // self.cache.__len__()
-
-    def copyKeys(self, targetServer, fromKey, toKey):
-        for key in list(self.cache.keys()):
-            keyHash = stableHash(key)
-            if fromKey <= keyHash:
-                targetServer.put(key, self.cache[key])
-                # self.cache.pop(key)
-        pass

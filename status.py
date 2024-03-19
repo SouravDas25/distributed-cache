@@ -3,7 +3,7 @@ from time import sleep
 
 import requests
 
-URL = "http://127.0.0.1:50087"
+URL = "http://localhost:8091"
 def get_status():
     url = f"{URL}/status/"
     headers = {"Accept": "application/json"}

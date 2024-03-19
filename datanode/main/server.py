@@ -1,7 +1,12 @@
 import json
 import os
+import sys
 import time
 from datetime import datetime
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(os.path.join(__file__, "../../")))
+print("package_path :", SCRIPT_DIR)
+sys.path.append(SCRIPT_DIR)
 
 import psutil
 import requests
@@ -9,6 +14,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, request, Response
 
 from LRUCache import LRUCache
+
+
 
 app = Flask(__name__)
 cache = LRUCache()
@@ -32,6 +39,7 @@ def post_to_masternode():
         "application_url": f"{VCAP_APPLICATION["application_uris"][0]}"
     }
     print("registering with masternode: ", url)
+    print("registering with masternode: ", body)
     try:
         response = requests.post(url, json=body, verify=False)
         print(response.json())

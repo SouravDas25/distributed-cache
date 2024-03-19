@@ -16,19 +16,23 @@ class DataNode(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def move_keys(self, targetServer, fromHash, toHash):
+    def move_keys(self, target_node: "DataNode", from_key: int, to_key: int):
         pass
 
     @abc.abstractmethod
-    def compact_keys(self, capacity):
+    async def compact_keys(self):
         pass
 
     @abc.abstractmethod
-    def health_check(self) -> bool:
+    async def health_check(self) -> bool:
         pass
 
     @abc.abstractmethod
-    def metrics(self):
+    def cached_metrics(self):
+        pass
+
+    @abc.abstractmethod
+    async def metrics(self, cache=True):
         pass
 
     @abc.abstractmethod
@@ -44,7 +48,7 @@ class DataNode(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def calculate_mid_key(self):
+    async def calculate_mid_key(self):
         pass
 
     def remove(self, key):
@@ -53,3 +57,11 @@ class DataNode(abc.ABC):
     @abc.abstractmethod
     def update_node(self, new_node) -> None:
         pass
+
+    def __str__(self):
+        return f"{self.name()}:{self.instance_no()}"
+
+    def __repr__(self):
+        return f"{self.name()}:{self.instance_no()}"
+
+

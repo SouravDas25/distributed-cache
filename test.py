@@ -69,7 +69,7 @@ if __name__ == "__main__":
     import random
     import string
 
-    URL = "http://127.0.0.1:50087"
+    URL = "http://localhost:8091"
 
 
     def strGen(N):
@@ -88,27 +88,27 @@ if __name__ == "__main__":
 
     while True:
 
-        for i in range(10):
-            key = strGen(1)
+        for i in range(100):
+            key = strGen(3)
             print("Inserting key : ", key)
-            # sc.put(key, i)
+            sc.put(key, i)
             keys.append(key)
             # sleep(1)
 
 
-        for i in range(50):
-            random.shuffle(keys)
-            if keys.__len__() <= 0:
-                break
-            key = keys[0]
-            if sc.has(key):
-                sc.get(key)
-                sc.remove(key)
-                if random.random() > 0.3:
-                    keys.pop(0)
-                    pass
-            else:
-                keys.pop(0)
+        # for i in range(500):
+        #     random.shuffle(keys)
+        #     if keys.__len__() <= 0:
+        #         break
+        #     key = keys[0]
+        #     if sc.has(key):
+        #         sc.get(key)
+        #         sc.remove(key)
+        #         if random.random() > 0.3:
+        #             keys.pop(0)
+        #             pass
+        #     else:
+        #         keys.pop(0)
             # sleep(1)
 
         # print(sc.clusterSize(), sc.servePoints)

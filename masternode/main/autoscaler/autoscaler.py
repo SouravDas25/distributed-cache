@@ -2,9 +2,6 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 
-
-
-
 class Autoscaler(object):
     def __init__(self):
         pass
@@ -14,7 +11,3 @@ class Autoscaler(object):
 
     def downscale(self):
         pass
-
-
-
-

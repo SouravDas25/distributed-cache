@@ -5,6 +5,7 @@ import requests
 from masternode.main.common.utils.hashing import stableHash
 from masternode.main.datanodes.datanode import DataNode
 import aiohttp
+from loguru import logger as LOGGER
 
 
 class NetworkDataNode(DataNode):
@@ -15,7 +16,7 @@ class NetworkDataNode(DataNode):
         self.app_id = app_id
         self.app_url = app_url
         self.url = f"{app_url}"
-        self.cached_metric = {}
+        self.cached_metric = {'size': 0}
 
     def update_node(self, new_node: DataNode):
         self.app_url = new_node.app_url
@@ -55,30 +56,25 @@ class NetworkDataNode(DataNode):
             # "X-Cf-App-Instance": str(self.instance_id)
         }
 
-        print("saving key : ", key, value, url)
+        LOGGER.info("saving key : {} {} {} ", key, value, url)
         # Make the POST request
         try:
             response = requests.post(url, json=value, headers=headers, verify=False)
 
             # print("POST request successful")
-            print("Response:", response.json())
+            LOGGER.info("Response: {} ", response.json())
         except Exception as e:
-            print("POST request failed with status code:", e)
+            LOGGER.exception("POST request failed with status code:", e)
 
     def get(self, key):
         url = f"{self.url}/retrieve/{key}"
         headers = {"Accept": "application/json"}
-
-        # Make the GET request
-        response = requests.get(url, headers=headers, verify=False)
-
-        # Check the response status code
-        if response.status_code == 200:
-            print("GET request successful")
-            # print("Response:", response.json())
+        try:
+            # Make the GET request
+            response = requests.get(url, headers=headers, verify=False)
             return response.json()
-        else:
-            print("GET request failed with status code:", response.status_code)
+        except Exception as e:
+            LOGGER.exception("GET request failed with status code:", e)
 
     def has(self, key: str):
         url = f"{self.url}/contains/{key}"
@@ -98,9 +94,9 @@ class NetworkDataNode(DataNode):
         try:
             response = requests.get(url, headers=headers, verify=False)
         except Exception as e:
-            print("GET request failed with status code:", e)
+            LOGGER.exception("GET request failed with status code:", e)
 
-    def calculate_mid_key(self):
+    async def calculate_mid_key(self):
         url = f"{self.url}/calculate-mid-key/"
         headers = {"Accept": "application/json"}
 
@@ -110,30 +106,25 @@ class NetworkDataNode(DataNode):
         # Check the response status code
         return response.json()['midKey']
 
-    def copyKeys(self, targetServer, fromKey, toKey):
-        for key in list(self.cache.keys()):
-            keyHash = stableHash(key)
-            if fromKey <= keyHash:
-                targetServer.put(key, self.cache[key])
-                # self.cache.pop(key)
+    async def metrics(self, cache=True):
+        if cache is False:
+            url = f"{self.url}/metrics/"
+            headers = {
+                # "Content-Type": "application/json",
+                # "X-Cf-App-Instance": str(self.instance_id)
+            }
+            LOGGER.info("getting metrics ", self.server_name)
+            # Make the POST request
+            try:
+                response = requests.get(url, headers=headers, verify=False)
+                self.cached_metric = response.json()
+                # print("POST request successful")
+            except Exception as e:
+                LOGGER.exception("POST request failed with status code:", e)
+        return self.cached_metric
 
-    async def metrics(self):
-        url = f"{self.url}/metrics/"
-        headers = {
-            # "Content-Type": "application/json",
-            # "X-Cf-App-Instance": str(self.instance_id)
-        }
-
-        print("getting metrics ", self.server_name)
-        # Make the POST request
-        try:
-            response = requests.get(url, headers=headers, verify=False)
-
-            self.cached_metric = response.json()
-            print("POST request successful")
-            return self.cached_metric
-        except Exception as e:
-            print("POST request failed with status code:", e)
+    def cached_metrics(self):
+        return self.cached_metric
 
     async def move_keys(self, targetServer, fromKey, toKey):
 
@@ -151,15 +142,15 @@ class NetworkDataNode(DataNode):
             # "X-Cf-App-Instance": str(self.instance_id)
         }
 
-        print("move keys : ", payload, url)
+        LOGGER.info("move keys : {} {} ", payload, url)
         # Make the POST request
         try:
             response = await asyncio.to_thread(requests.post, url=url, json=payload, headers=headers, verify=False)
             data = response.json()
-            print("copy-keys response : ", data)
+            LOGGER.info("copy-keys response : {} ", data)
             return data
         except Exception as e:
-            print("POST request failed with status code:", e)
+            LOGGER.exception("POST request failed with status code:", e)
         pass
 
     async def compact_keys(self):

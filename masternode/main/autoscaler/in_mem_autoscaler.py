@@ -1,7 +1,7 @@
 from masternode.main.autoscaler.autoscaler import Autoscaler
 
 from masternode.main.datanodes.in_memory_datanode import InMemoryDataNode
-
+from loguru import logger as LOGGER
 
 class LocalAutoscaler(Autoscaler):
     def __init__(self, cache):
@@ -12,6 +12,7 @@ class LocalAutoscaler(Autoscaler):
     def upscale(self):
         self.cache.ring.add_free_node(InMemoryDataNode("datanode-" + str(self.count), self.count))
         self.count += 1
+        LOGGER.info("Up scaling: no of nodes: {}", self.count)
         pass
 
     def downscale(self):
