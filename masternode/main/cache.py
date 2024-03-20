@@ -29,14 +29,17 @@ class DistributedCache:
 
     def get(self, key):
         node = self.ring.resolve_node(key)
+        LOGGER.info(f"Server for key {key} : {node.name()}")
         return node.get(key)
 
     def has(self, key):
         node = self.ring.resolve_node(key)
+        LOGGER.info(f"Server for key {key} : {node.name()}")
         return node.has(key)
 
     def remove(self, key):
         node = self.ring.resolve_node(key)
+        LOGGER.info(f"Server for key {key} : {node.name()}")
         return node.remove(key)
 
     def load(self) -> float:

@@ -57,7 +57,7 @@ class HashRing:
     def check_nodes(self, ):
         overloaded_nodes = []
         underloaded_nodes = []
-        for key, node in self.ring.keys():
+        for key, node in self.ring.all_hashes():
             metrics = node.metrics()
             load = metrics.load
             if load > 0.75:
@@ -81,7 +81,7 @@ class HashRing:
 
     def remove_node(self, key):
         behide_entry = self.ring.lower_entry(key)
-        if behide_entry.key != self.ring.first_key():
+        if behide_entry.key != self.ring.first_hash():
             current_node = self.ring[key]
             current_node.move_keys(behide_entry.value, key, None)
             free_node = self.ring.remove(key)

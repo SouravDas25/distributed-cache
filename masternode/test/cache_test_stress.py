@@ -18,6 +18,7 @@ class DistributedCacheStressTest(unittest.TestCase):
         self.cache = DistributedCache(config)
         self.cache.autoscaler.upscale()
         self.run_balance()
+        self.saved_keys = set()
 
     def run_balance(self):
         LOGGER.info("Running Balance")
@@ -26,8 +27,10 @@ class DistributedCacheStressTest(unittest.TestCase):
 
     def test_scale_up_balance(self):
         for i in range(100):
-            key = "apple-" + str(i)
+            key = random_str(3)
             self.cache.put(key, i)
+            self.saved_keys.add(key)
+
         load = self.cache.load()
         while load >= 1:
             LOGGER.info("Current load: {}", load)
@@ -36,21 +39,36 @@ class DistributedCacheStressTest(unittest.TestCase):
             self.assertLess(new_load, load)
             load = new_load
             LOGGER.info("New load: {}", load)
-            sleep(1)
+            # sleep(1)
 
     def test_scale_down_balance(self):
+        self.saved_keys.clear()
+
         self.test_scale_up_balance()
-        for i in range(99):
-            key = "apple-" + str(i)
-            self.cache.remove(key)
+
+        LOGGER.info("Saved keys: {}", self.saved_keys)
+
+        saved_keys = list(self.saved_keys)
+        random.shuffle(saved_keys)
+
         no_of_nodes = self.cache.ring.ring_ds.__len__()
         while no_of_nodes > 1:
             LOGGER.info("Current nodes: {}", no_of_nodes)
+
+            for i in range(min(25, len(saved_keys))):
+                key = saved_keys.pop()
+                self.cache.remove(key)
+
             self.run_balance()
+
             new_nodes = self.cache.ring.ring_ds.__len__()
-            self.assertGreater(no_of_nodes, new_nodes)
+
+            diff = new_nodes - no_of_nodes
+            self.assertTrue(diff <= 1)
+
             no_of_nodes = new_nodes
+
             LOGGER.info("New nodes: {}", new_nodes)
-            sleep(1)
+            # sleep(1)
 
         pass
