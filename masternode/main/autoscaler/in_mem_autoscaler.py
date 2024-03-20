@@ -10,7 +10,7 @@ class LocalAutoscaler(Autoscaler):
         self.count = 0
 
     def upscale(self):
-        self.cache.load_balancer.ring.add_free_node(InMemoryDataNode("datanode-" + str(self.count), self.count))
+        self.cache.add_node(InMemoryDataNode("datanode-" + str(self.count), self.count))
         self.count += 1
         LOGGER.info("Up scaling: no of nodes: {}", self.count)
         pass

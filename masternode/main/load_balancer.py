@@ -46,36 +46,31 @@ class RingLoadBalancer:
         if self.ring.no_of_free_nodes() > 1:
             LOGGER.info("Downscaling node")
 
-            max_node_from_ring, ring_node_key = self.ring.get_node_with_max_instance_no()
+            max_node_from_ring, ring_node_key = self.ring.get_active_node_with_max_instance_no()
             max_free_node = self.ring.get_free_node_with_max_instance_no()
 
             LOGGER.info("Max Node from ring {} ", max_node_from_ring)
             LOGGER.info("Max Node free {} ", max_free_node)
 
-            free_node = self.ring.pop_free_node_with_min_instance_no()
-
             if max_node_from_ring.instance_no() > max_free_node.instance_no():
+                free_node = self.ring.pop_free_node_with_min_instance_no()
                 try:
                     LOGGER.info("Removing from ring {}, {} ", max_node_from_ring.name(), ring_node_key)
                     LOGGER.info(f"moving data from: {max_node_from_ring.name()} -> {free_node.name()}")
+
                     response = await max_node_from_ring.move_keys(free_node, ring_node_key, "")
                     if response["success"]:
-                        self.ring.put_node(ring_node_key, free_node)
+                        self.ring.put_active_node(ring_node_key, free_node)
                         await max_node_from_ring.compact_keys()
-                        self.ring.add_free_node(max_node_from_ring)
+                        self.ring.free_up_node(max_node_from_ring)
                     LOGGER.info("Removed from ring {} ", max_node_from_ring.name())
                 except Exception as e:
-                    self.ring.add_free_node(free_node)
+                    self.ring.free_up_node(free_node)
                     LOGGER.exception("REMOVE from ring Failed: {}, {} ", max_node_from_ring.name(), ring_node_key, e)
             else:
-                if free_node != max_free_node:
-                    self.ring.remove_free_node(max_free_node.instance_no())
-                    LOGGER.info("REMOVE Free Server: {} ", max_free_node.name())
-                    self.autoscaler.downscale()
-                else:
-                    self.ring.add_free_node(free_node)
-                    LOGGER.info("free_node is max_free_node")
-                pass
+                self.ring.remove_blocked_or_free_node(max_free_node.instance_no())
+                LOGGER.info("REMOVE Free Server: {} ", max_free_node.name())
+                self.autoscaler.downscale()
             pass
         pass
 
@@ -83,8 +78,8 @@ class RingLoadBalancer:
         overloaded_map = SortedDict()
         underloaded_map = SortedDict()
 
-        for from_key in self.ring.all_hashes():
-            node = self.ring.get_node(from_key)
+        for from_key in self.ring.all_active_node_hashes():
+            node = self.ring.get_active_node(from_key)
             metrics = await node.metrics(cache=False)
             load = metrics["size"] / self.max_size
             LOGGER.info(f"{node.name()} metrics : {metrics}")
@@ -118,7 +113,7 @@ class RingLoadBalancer:
             LOGGER.info("No Datanode found in ring.")
             if self.ring.no_of_free_nodes() > 0:
                 node = self.ring.pop_free_node_with_min_instance_no()
-                self.ring.put_node(0, node)
+                self.ring.put_active_node(0, node)
                 LOGGER.info("Adding first node to ring {}, {} ", 0, node.name())
             return
 
@@ -159,38 +154,42 @@ class RingLoadBalancer:
     async def split_node(self, from_hash, to_hash):
         # check if server is active and ready yet
 
-        behind_node = self.ring.get_node(from_hash)
-        ahead_node = self.ring.get_node(to_hash)
+        behind_node = self.ring.get_active_node(from_hash)
+        ahead_node = self.ring.get_active_node(to_hash)
 
         if self.ring.no_of_free_nodes() <= 0:
             LOGGER.info("Free node not available to scale {}", behind_node)
             return
 
         free_node = self.ring.pop_free_node_with_min_instance_no()
-        is_available = await free_node.health_check()
-        if not is_available:
-            return
 
-        mid_hash = await behind_node.calculate_mid_key()
-
-        if from_hash == mid_hash:
-            return
-
-        LOGGER.info("ADDING DATA-NODE for {} ", behind_node.name())
         try:
+
+            is_available = await free_node.health_check()
+            if not is_available:
+                self.ring.remove_blocked_or_free_node(free_node.instance_no())
+                return
+
+            mid_hash = await behind_node.calculate_mid_key()
+
+            if from_hash == mid_hash:
+                return
+
+            LOGGER.info("Splitting node for {} ", behind_node.name())
+
             LOGGER.info(f"moving data from: {behind_node.name()} -> {free_node.name()}")
             response = await behind_node.move_keys(free_node, mid_hash, to_hash)
             if response["success"]:
-                self.ring.put_node(mid_hash, free_node)
+                self.ring.put_active_node(mid_hash, free_node)
                 await behind_node.compact_keys()
             else:
                 LOGGER.error(f"moving data failed for: {behind_node.name()} -> {free_node.name()}")
-                self.ring.add_free_node(free_node)
+                self.ring.free_up_node(free_node)
 
-            LOGGER.info("ADDING DATA-NODE completed for {} ", behind_node.name())
+            LOGGER.info("Splitting node completed for {} ", behind_node.name())
 
         except Exception as e:
-            self.ring.add_free_node(free_node)
+            self.ring.free_up_node(free_node)
             LOGGER.exception("Exception while adding node, ", e)
 
         pass
@@ -198,16 +197,19 @@ class RingLoadBalancer:
     async def merge_node(self, node_hash):
         if node_hash == self.ring.first_hash():
             return
+
         behind_hash = self.ring.lower_hash(node_hash)
-        behind_node = self.ring.get_node(behind_hash)
-        node = self.ring.get_node(node_hash)
+        behind_node = self.ring.get_active_node(behind_hash)
+        node = self.ring.get_active_node(node_hash)
+        LOGGER.info("Merging started {} ", node.name())
+
         # move all data to previous node
         response = await node.move_keys(behind_node, node_hash, None)
 
-        self.ring.remove_node(node_hash)
+        self.ring.free_up_node(node)
         await node.compact_keys()
-        self.ring.add_free_node(node)
-        LOGGER.info("Removed DATA-NODE {} ", node.name())
+
+        LOGGER.info("Merging node {} ", node.name())
         pass
 
     def resolve_node(self, key: str) -> DataNode:
@@ -215,16 +217,16 @@ class RingLoadBalancer:
         key_hash = self.ring.floor_hash(key_hash)
         if key_hash is None:
             key_hash = self.ring.last_hash()
-        return self.ring.get_node(key_hash)
+        return self.ring.get_active_node(key_hash)
 
     def load(self):
-        return sum([self.ring.get_node(node_hash).size() / self.max_size for node_hash in
-                    self.ring.all_hashes()]) / self.ring.no_of_active_nodes()
+        return sum([self.ring.get_active_node(node_hash).size() / self.max_size for node_hash in
+                    self.ring.all_active_node_hashes()]) / self.ring.no_of_active_nodes()
 
     def status(self):
         ring = []
-        for node_hash in self.ring.all_hashes():
-            node: DataNode = self.ring.get_node(node_hash)
+        for node_hash in self.ring.all_active_node_hashes():
+            node: DataNode = self.ring.get_active_node(node_hash)
             ring.append({
                 "node_hash": node_hash,
                 "node_name": node.name(),
@@ -235,7 +237,7 @@ class RingLoadBalancer:
             pass
 
         free_nodes = []
-        for node in self.ring.free_nodes.values():
+        for node in self.ring.free_nodes().values():
             free_nodes.append({
                 "node_name": node.name(),
                 "instance_id": node.instance_no()

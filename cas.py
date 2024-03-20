@@ -57,7 +57,7 @@ class HashRing:
     def check_nodes(self, ):
         overloaded_nodes = []
         underloaded_nodes = []
-        for key, node in self.ring.all_hashes():
+        for key, node in self.ring.all_active_node_hashes():
             metrics = node.metrics()
             load = metrics.load
             if load > 0.75:

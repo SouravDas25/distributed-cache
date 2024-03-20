@@ -88,13 +88,31 @@ if __name__ == "__main__":
 
     while True:
 
-        for i in range(100):
-            key = strGen(3)
-            print("Inserting key : ", key)
-            sc.put(key, i)
-            keys.append(key)
-            # sleep(1)
+        action = input("Enter action(I/C/G/R): ")
 
+        if action == "I":
+            keys.clear()
+            for i in range(10):
+                key = strGen(3)
+                print("Inserting key : ", key)
+                sc.put(key, i)
+                keys.append(key)
+            pass
+        elif action == "C":
+            for key in keys:
+                print("has key : ", key, sc.has(key))
+
+            pass
+        elif action == "G":
+            for key in keys:
+                print("has key : ", key, sc.get(key))
+            pass
+        elif action == "R":
+            for key in keys:
+                print("has key : ", key, sc.remove(key))
+            pass
+
+            # sleep(1)
 
         # for i in range(500):
         #     random.shuffle(keys)
@@ -109,8 +127,8 @@ if __name__ == "__main__":
         #             pass
         #     else:
         #         keys.pop(0)
-            # sleep(1)
+        # sleep(1)
 
         # print(sc.clusterSize(), sc.servePoints)
         # sc.printClusterDistribution()
-        sleep(5)
+        # sleep(5)

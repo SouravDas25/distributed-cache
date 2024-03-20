@@ -14,76 +14,113 @@ class ConsistentHashRing(Generic[T]):
 
     def __init__(self):
         self.bst = TreeMap()
-        self.attached_nodes = SortedDict()
-        self.free_nodes = SortedDict()
+        self.__attached_nodes = {}
+        self.__free_nodes = {}
+        self.__blocked_nodes = {}
 
-    def all_hashes(self):
+    def all_active_node_hashes(self):
         return list(self.bst.key_set())
 
-    def get_node(self, node_hash: int) -> DataNode:
+    def get_active_node(self, node_hash: int) -> DataNode:
         return self.bst.get(node_hash)
 
-    def put_node(self, node_hash: int, node: DataNode) -> None:
+    def put_active_node(self, node_hash: int, node: DataNode) -> None:
         if not self.bst.contains_key(node_hash):
-            self.attached_nodes[node.instance_no()] = node_hash
+
+            if node.instance_no() not in self.__blocked_nodes:
+                LOGGER.error("new attaching node not in ib-nodes:, {} {}", node, node_hash)
+            else:
+                self.__blocked_nodes.pop(node.instance_no())
+
+            self.__attached_nodes[node.instance_no()] = node_hash
             self.bst.put(node_hash, node)
         else:
             old_node = self.bst.get(node_hash)
-            self.attached_nodes.pop(old_node.instance_no())
-            self.attached_nodes[node.instance_no()] = node_hash
+            self.__attached_nodes.pop(old_node.instance_no())
+            self.__attached_nodes[node.instance_no()] = node_hash
             self.bst.put(node_hash, node)
         pass
 
-    def remove_node(self, node_hash):
+    def remove_active_node(self, node_hash):
         node = self.bst.get(node_hash)
-        self.attached_nodes.pop(node.instance_no())
+        self.__attached_nodes.pop(node.instance_no())
         self.bst.remove(node_hash)
         pass
 
-    def has_node(self, new_node: DataNode) -> bool:
-        return new_node.instance_no() in self.attached_nodes
+    def is_active_node(self, node: DataNode) -> bool:
+        return node.instance_no() in self.__attached_nodes
 
-    def get_node_hash(self, new_node: DataNode) -> str | None:
-        return self.attached_nodes[new_node.instance_no()]
+    def is_blocked_node(self, node: DataNode) -> bool:
+        return node.instance_no() in self.__blocked_nodes
+
+    def is_free_node(self, node: DataNode) -> bool:
+        return node.instance_no() in self.__free_nodes
+
+    def get_active_node_hash(self, new_node: DataNode) -> str | None:
+        return self.__attached_nodes[new_node.instance_no()]
 
     def update_node(self, new_node: DataNode):
-        if self.has_node(new_node):
-            node_hash = self.get_node_hash(new_node)
+        if self.is_active_node(new_node):
+            node_hash = self.get_active_node_hash(new_node)
             node = self.bst.get(node_hash)
             node.update_node(new_node)
+        elif self.is_blocked_node(new_node):
+            self.__blocked_nodes[new_node.instance_no()].update_node(new_node)
+        elif self.is_free_node(new_node):
+            self.__free_nodes[new_node.instance_no()].update_node(new_node)
         pass
 
-    def get_node_with_max_instance_no(self) -> (DataNode, str):
-        max_instance_no = max(self.attached_nodes.keys())
-        node_hash = self.attached_nodes[max_instance_no]
+    def get_active_node_with_max_instance_no(self) -> (DataNode, str):
+        max_instance_no = max(self.__attached_nodes.keys())
+        node_hash = self.__attached_nodes[max_instance_no]
         node = self.bst.get(node_hash)
         return node, node_hash
 
-    def no_of_free_nodes(self):
-        return self.free_nodes.__len__()
-
-    def add_free_node(self, node: DataNode) -> None:
-        if self.has_node(node):
+    def register_node(self, node: DataNode) -> None:
+        if self.is_active_node(node) or self.is_blocked_node(node) or self.is_free_node(node):
+            LOGGER.info("Updating node {} ", node)
             self.update_node(node)
         else:
-            LOGGER.info("Adding free node {} ", node)
+            LOGGER.info("Registering free node {} ", node)
             instance_no = node.instance_no()
-            self.free_nodes[instance_no] = node
+            self.__free_nodes[instance_no] = node
+
+    def free_up_node(self, node: DataNode) -> None:
+        instance_no = node.instance_no()
+        if self.is_blocked_node(node):
+            LOGGER.info("Freeing up in-process node {} ", node)
+            self.__blocked_nodes.pop(node.instance_no())
+        elif self.is_active_node(node):
+            LOGGER.info("Freeing up ring node {} ", node)
+            node_hash = self.__attached_nodes[instance_no]
+            self.__attached_nodes.pop(instance_no)
+            self.bst.remove(node_hash)
+        else:
+            LOGGER.info("Freeing up node {} ", node)
+        self.__free_nodes[instance_no] = node
 
     def get_free_node_with_max_instance_no(self) -> DataNode:
-        instance_no = max(self.free_nodes.keys())
-        return self.free_nodes.get(instance_no)
+        instance_no = max(self.__free_nodes.keys())
+        return self.__free_nodes.get(instance_no)
 
     def pop_free_node_with_min_instance_no(self) -> DataNode:
-        instance_no = min(self.free_nodes.keys())
-        return self.free_nodes.pop(instance_no)
+        instance_no = min(self.__free_nodes.keys())
+        self.__blocked_nodes[instance_no] = self.__free_nodes.pop(instance_no)
+        return self.__blocked_nodes[instance_no]
 
-    def remove_free_node(self, instance_no: int) -> None:
-        self.free_nodes.pop(instance_no)
+    def remove_blocked_or_free_node(self, instance_no: int) -> None:
+        if instance_no in self.__blocked_nodes:
+            self.__blocked_nodes.pop(instance_no)
+        if instance_no in self.__free_nodes:
+            self.__free_nodes.pop(instance_no)
+
         pass
 
     def no_of_active_nodes(self):
         return self.bst.__len__()
+
+    def no_of_free_nodes(self):
+        return self.__free_nodes.__len__()
 
     def last_hash(self):
         return self.bst.last_key()
@@ -99,6 +136,9 @@ class ConsistentHashRing(Generic[T]):
 
     def floor_hash(self, key_hash):
         return self.bst.floor_key(key_hash)
+
+    def free_nodes(self):
+        return self.__free_nodes
 
 
 if __name__ == "__main__":
