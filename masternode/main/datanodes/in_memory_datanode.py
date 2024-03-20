@@ -1,4 +1,4 @@
-from masternode.main.common.utils.hashing import stableHash
+from masternode.main.common.hashing import stable_hash
 from masternode.main.datanodes.datanode import DataNode
 
 
@@ -27,7 +27,7 @@ class InMemoryDataNode(DataNode):
 
     async def move_keys(self, target_node, from_key, to_key):
         for key in list(self.cache.keys()):
-            key_hash = stableHash(key)
+            key_hash = stable_hash(key)
             if from_key <= key_hash:
                 target_node.put(key, self.cache[key])
                 # self.cache.pop(key)
@@ -66,4 +66,4 @@ class InMemoryDataNode(DataNode):
         return self.cache.pop(key)
 
     async def calculate_mid_key(self):
-        return sum(map(lambda x: stableHash(x), self.cache.keys())) // self.cache.__len__()
+        return sum(map(lambda x: stable_hash(x), self.cache.keys())) // self.cache.__len__()

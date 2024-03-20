@@ -1,10 +1,7 @@
 import asyncio
-import json
 
 import requests
-from masternode.main.common.utils.hashing import stableHash
 from masternode.main.datanodes.datanode import DataNode
-import aiohttp
 from loguru import logger as LOGGER
 
 

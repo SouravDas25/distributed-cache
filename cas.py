@@ -1,6 +1,6 @@
 import hashlib
 
-from masternode.main.common.TreeMap import TreeDict
+from masternode.main.ring import ConsistentHashRing
 
 
 class Node:
@@ -47,7 +47,7 @@ class HashRing:
 
     def __init__(self, replication_factor=1):
         self.replication_factor = replication_factor
-        self.ring = TreeDict()
+        self.ring = ConsistentHashRing()
         self.free_nodes = []
         self.ring[0] = Node("A", "B", "C")
 

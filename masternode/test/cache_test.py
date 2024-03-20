@@ -1,11 +1,7 @@
 import asyncio
-import string
 import unittest
-import random
-from time import sleep
 
 from masternode.main.cache import DistributedCache, CacheConfig
-from masternode.main.common.utils.hashing import random_str
 from loguru import logger as LOGGER
 
 
@@ -20,7 +16,7 @@ class DistributedCacheTest(unittest.TestCase):
 
     def run_balance(self):
         LOGGER.info("Running Balance")
-        asyncio.run(self.cache.ring.balance())
+        asyncio.run(self.cache.load_balancer.balance())
         LOGGER.info("Balance completed ")
 
     def test_put(self):
@@ -38,7 +34,7 @@ class DistributedCacheTest(unittest.TestCase):
         self.run_balance()
         self.run_balance()
         status = self.cache.status()
-        self.assertGreaterEqual(status["ring"].__len__(), 2)
+        self.assertGreaterEqual(status["ring"].no_of_active_nodes(), 2)
 
     def test_scale_down(self):
         self.test_scale_up()
@@ -48,7 +44,7 @@ class DistributedCacheTest(unittest.TestCase):
         self.run_balance()
         self.run_balance()
         status = self.cache.status()
-        self.assertLessEqual(status["ring"].__len__(), 1)
+        self.assertLessEqual(status["ring"].no_of_active_nodes(), 1)
         pass
 
     def test_contains(self):

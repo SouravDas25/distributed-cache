@@ -26,7 +26,7 @@ def hello_world():
 def post_new_instance():
     data = request.get_json()
     datanode = NetworkDataNode(data["application_name"], data["instanceId"], data["application_url"], data["appId"])
-    distributed_cache.ring.add_free_node(datanode)
+    distributed_cache.add_node(datanode)
     print("Discovered instance", data)
     return json.dumps({"success": True})
 

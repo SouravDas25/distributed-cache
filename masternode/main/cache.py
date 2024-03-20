@@ -1,9 +1,12 @@
 import os
 
 from masternode.main.autoscaler.autoscaler_factory import create_autoscaler
-from masternode.main.ring import ConsistentHashRing
+from masternode.main.datanodes.datanode import DataNode
+from masternode.main.load_balancer import RingLoadBalancer
 
 from loguru import logger as LOGGER
+
+from masternode.main.ring import ConsistentHashRing
 
 
 class CacheConfig:
@@ -19,33 +22,36 @@ class DistributedCache:
 
     def __init__(self, config):
         self.config = config
+        self.ring: ConsistentHashRing[DataNode] = ConsistentHashRing()
         self.autoscaler = create_autoscaler(self.config.autoscaler_type, self)
-        self.ring = ConsistentHashRing(self.config.cache_size, self.autoscaler)
+        self.load_balancer = RingLoadBalancer(self.config.cache_size, self.ring, self.autoscaler)
+
+    def add_node(self, node: DataNode):
+        self.ring.add_free_node(node)
 
     def put(self, key, value):
-        node = self.ring.resolve_node(key)
+        node = self.load_balancer.resolve_node(key)
         LOGGER.info(f"Server for key {key} : {node.name()}")
         node.put(key, value)
 
     def get(self, key):
-        node = self.ring.resolve_node(key)
+        node = self.load_balancer.resolve_node(key)
         LOGGER.info(f"Server for key {key} : {node.name()}")
         return node.get(key)
 
     def has(self, key):
-        node = self.ring.resolve_node(key)
+        node = self.load_balancer.resolve_node(key)
         LOGGER.info(f"Server for key {key} : {node.name()}")
         return node.has(key)
 
     def remove(self, key):
-        node = self.ring.resolve_node(key)
+        node = self.load_balancer.resolve_node(key)
         LOGGER.info(f"Server for key {key} : {node.name()}")
         return node.remove(key)
 
     def load(self) -> float:
-        return self.ring.load()
+        return self.load_balancer.load()
 
     def status(self):
-        return self.ring.status()
+        return self.load_balancer.status()
         pass
-
