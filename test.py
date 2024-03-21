@@ -69,7 +69,7 @@ if __name__ == "__main__":
     import random
     import string
 
-    URL = "http://localhost:8091"
+    URL = "http://127.0.0.1:64537"
 
 
     def strGen(N):

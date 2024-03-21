@@ -70,7 +70,7 @@ class RingLoadBalancer:
             else:
                 self.ring.remove_blocked_or_free_node(max_free_node.instance_no())
                 LOGGER.info("REMOVE Free Server: {} ", max_free_node.name())
-                self.autoscaler.downscale()
+                self.autoscaler.downscale(max_free_node.instance_no())
             pass
         pass
 

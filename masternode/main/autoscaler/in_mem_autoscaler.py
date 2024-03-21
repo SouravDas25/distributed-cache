@@ -15,5 +15,5 @@ class LocalAutoscaler(Autoscaler):
         LOGGER.info("Up scaling: no of nodes: {}", self.count)
         pass
 
-    def downscale(self):
+    def downscale(self, instance_no: int):
         pass

@@ -28,6 +28,8 @@ spec:
                             value: "2"
                         -   name: MASTER_NODE
                             value: "true"
+                        -   name: AUTOSCALER_TYPE
+                            value: "K8S"
                     readinessProbe:
                         initialDelaySeconds: 5
                         periodSeconds: 5

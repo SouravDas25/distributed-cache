@@ -9,5 +9,5 @@ class Autoscaler(object):
     def upscale(self):
         pass
 
-    def downscale(self):
+    def downscale(self, instance_no: int):
         pass

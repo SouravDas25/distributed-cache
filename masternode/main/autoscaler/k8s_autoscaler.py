@@ -32,14 +32,14 @@ class K8sAutoscaler(Autoscaler):
             LOGGER.info("Up scaling: no of nodes: {}", data.status.current_replicas + 1)
         pass
 
-    def downscale(self):
+    def downscale(self, instance_no: int):
         time_diff = datetime.now() - self.LAST_CALLED_AT
         if time_diff.seconds > TIMEOUT_SEC:
             self.LAST_CALLED_AT = datetime.now()
-            data = self.api.read_namespaced_stateful_set_status("ihs-datanode", "default")
 
+            data = self.api.read_namespaced_stateful_set_status("ihs-datanode", "default")
             print(data.status)
-            if data.status.current_replicas > 1:
+            if data.status.current_replicas > 1 and (data.status.current_replicas - 1) >= instance_no:
                 body = {'spec': {'replicas': data.status.current_replicas - 1}}
                 self.api.patch_namespaced_stateful_set_scale("ihs-datanode", "default", body)
 

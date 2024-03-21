@@ -38,7 +38,7 @@ class CfAutoscaler(Autoscaler):
             print(f"Error: {response.status_code}")
         pass
 
-    def downscale(self):
+    def downscale(self, instance_no: int):
         body = {
             "instance_index": 0,
             "metrics.txt": [
