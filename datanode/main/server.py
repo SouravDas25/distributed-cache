@@ -158,15 +158,15 @@ def calculateMidKey():
     }
 
 
-@app.route('/copy-keys/', methods=['POST'])
-def copyKeys():
+@app.post('/copy-keys/')
+def copy_keys():
     body = request.get_json()
     print("request body for copy", body)
     targetServer = body['targetServer']
     fromKey = body['fromKey']
     toKey = body['toKey']
 
-    cache.moveKeys(targetServer, fromKey, toKey)
+    cache.copy_keys(targetServer, fromKey, toKey)
 
     # post_copy_completion(targetServer["name"])
     return {"success": True}

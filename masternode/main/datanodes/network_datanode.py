@@ -7,9 +7,9 @@ from loguru import logger as LOGGER
 
 class NetworkDataNode(DataNode):
 
-    def __init__(self, server_name: str, instance_id: int, app_url: str, app_id: str):
+    def __init__(self, server_name: str, k8s_instance_no: int, app_url: str, app_id: str):
         self.server_name = server_name
-        self.instance_id = int(instance_id)
+        self.k8s_instance_no = int(k8s_instance_no)
         self.app_id = app_id
         self.app_url = app_url
         self.url = f"{app_url}"
@@ -21,7 +21,7 @@ class NetworkDataNode(DataNode):
         self.url = new_node.url
 
     def instance_no(self) -> int:
-        return self.instance_id
+        return self.k8s_instance_no
 
     def size(self, cache=True):
         return self.cached_metric["size"] if "size" in self.cached_metric else 0
@@ -123,7 +123,7 @@ class NetworkDataNode(DataNode):
     def cached_metrics(self):
         return self.cached_metric
 
-    async def move_keys(self, targetServer, fromKey, toKey):
+    async def copy_keys(self, targetServer, fromKey, toKey):
 
         url = f"{self.url}/copy-keys/"
         payload = {

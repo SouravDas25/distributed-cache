@@ -56,7 +56,7 @@ class LRUCache:
             print("POST request failed with status code:", e)
         pass
 
-    def moveKeys(self, targetServer, fromKey, toKey):
+    def copy_keys(self, targetServer, fromKey, toKey):
 
         for key in list(self.cache.keys()):
             keyHash = stableHash(key)

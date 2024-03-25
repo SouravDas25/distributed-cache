@@ -17,7 +17,7 @@ app = Flask(__name__)
 distributed_cache = DistributedCache(config)
 
 
-@app.route("/")
+@app.get("/")
 def hello_world():
     return "<p>Hello, World!</p>"
 
@@ -26,7 +26,7 @@ def hello_world():
 def post_new_instance():
     data = request.get_json()
     datanode = NetworkDataNode(data["application_name"], data["instanceId"], data["application_url"], data["appId"])
-    distributed_cache.add_node(datanode)
+    distributed_cache.register_new_node(datanode)
     print("Discovered instance", data)
     return json.dumps({"success": True})
 
@@ -92,7 +92,7 @@ def save(key):
     )
 
 
-@app.route('/status/', methods=['GET'])
+@app.get('/status/')
 def status():
     try:
         data = distributed_cache.status()

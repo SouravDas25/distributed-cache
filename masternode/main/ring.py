@@ -14,7 +14,7 @@ class ConsistentHashRing(Generic[T]):
 
     def __init__(self):
         self.bst = TreeMap()
-        self.__attached_nodes = {}
+        self.__nodes_in_ring = {}
         self.__free_nodes = {}
         self.__blocked_nodes = {}
 
@@ -32,23 +32,26 @@ class ConsistentHashRing(Generic[T]):
             else:
                 self.__blocked_nodes.pop(node.instance_no())
 
-            self.__attached_nodes[node.instance_no()] = node_hash
+            self.__nodes_in_ring[node.instance_no()] = node_hash
             self.bst.put(node_hash, node)
         else:
             old_node = self.bst.get(node_hash)
-            self.__attached_nodes.pop(old_node.instance_no())
-            self.__attached_nodes[node.instance_no()] = node_hash
+            self.__nodes_in_ring.pop(old_node.instance_no())
+            self.__nodes_in_ring[node.instance_no()] = node_hash
             self.bst.put(node_hash, node)
         pass
 
     def remove_active_node(self, node_hash):
         node = self.bst.get(node_hash)
-        self.__attached_nodes.pop(node.instance_no())
+        self.__nodes_in_ring.pop(node.instance_no())
         self.bst.remove(node_hash)
         pass
 
+    def is_active_node_hash(self, node_hash):
+        return self.bst.contains_key(node_hash)
+
     def is_active_node(self, node: DataNode) -> bool:
-        return node.instance_no() in self.__attached_nodes
+        return node.instance_no() in self.__nodes_in_ring
 
     def is_blocked_node(self, node: DataNode) -> bool:
         return node.instance_no() in self.__blocked_nodes
@@ -57,7 +60,7 @@ class ConsistentHashRing(Generic[T]):
         return node.instance_no() in self.__free_nodes
 
     def get_active_node_hash(self, new_node: DataNode) -> str | None:
-        return self.__attached_nodes[new_node.instance_no()]
+        return self.__nodes_in_ring[new_node.instance_no()]
 
     def update_node(self, new_node: DataNode):
         if self.is_active_node(new_node):
@@ -71,12 +74,12 @@ class ConsistentHashRing(Generic[T]):
         pass
 
     def get_active_node_with_max_instance_no(self) -> (DataNode, str):
-        max_instance_no = max(self.__attached_nodes.keys())
-        node_hash = self.__attached_nodes[max_instance_no]
+        max_instance_no = max(self.__nodes_in_ring.keys())
+        node_hash = self.__nodes_in_ring[max_instance_no]
         node = self.bst.get(node_hash)
         return node, node_hash
 
-    def register_node(self, node: DataNode) -> None:
+    def register_new_node(self, node: DataNode) -> None:
         if self.is_active_node(node) or self.is_blocked_node(node) or self.is_free_node(node):
             LOGGER.info("Updating node {} ", node)
             self.update_node(node)
@@ -92,8 +95,8 @@ class ConsistentHashRing(Generic[T]):
             self.__blocked_nodes.pop(node.instance_no())
         elif self.is_active_node(node):
             LOGGER.info("Freeing up ring node {} ", node)
-            node_hash = self.__attached_nodes[instance_no]
-            self.__attached_nodes.pop(instance_no)
+            node_hash = self.__nodes_in_ring[instance_no]
+            self.__nodes_in_ring.pop(instance_no)
             self.bst.remove(node_hash)
         else:
             LOGGER.info("Freeing up node {} ", node)
@@ -139,6 +142,9 @@ class ConsistentHashRing(Generic[T]):
 
     def free_nodes(self):
         return self.__free_nodes
+
+    def no_of_blocked_nodes(self) -> int:
+        return self.__blocked_nodes.__len__()
 
 
 if __name__ == "__main__":

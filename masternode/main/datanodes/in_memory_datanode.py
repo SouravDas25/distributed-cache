@@ -25,7 +25,7 @@ class InMemoryDataNode(DataNode):
     def name(self):
         return self.server_name
 
-    async def move_keys(self, target_node, from_key, to_key):
+    async def copy_keys(self, target_node, from_key, to_key):
         for key in list(self.cache.keys()):
             key_hash = stable_hash(key)
             if from_key <= key_hash:

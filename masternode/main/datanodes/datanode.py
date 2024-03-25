@@ -17,7 +17,7 @@ class DataNode(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def move_keys(self, target_node: "DataNode", from_key: int, to_key: int):
+    def copy_keys(self, target_node: "DataNode", from_key: int, to_key: int):
         pass
 
     @abc.abstractmethod

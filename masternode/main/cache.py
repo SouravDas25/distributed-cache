@@ -26,8 +26,8 @@ class DistributedCache:
         self.autoscaler = create_autoscaler(self.config.autoscaler_type, self)
         self.load_balancer = RingLoadBalancer(self.config.cache_size, self.ring, self.autoscaler)
 
-    def add_node(self, node: DataNode):
-        self.ring.register_node(node)
+    def register_new_node(self, node: DataNode):
+        self.ring.register_new_node(node)
 
     def put(self, key, value):
         node = self.load_balancer.resolve_node(key)

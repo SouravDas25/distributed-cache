@@ -19,7 +19,7 @@ class K8sAutoscaler(Autoscaler):
         self.api = client.AppsV1Api()
         self.LAST_CALLED_AT = datetime.now()
 
-    def upscale(self):
+    def upscale(self, instance_no: int):
         time_diff = datetime.now() - self.LAST_CALLED_AT
         if time_diff.seconds > TIMEOUT_SEC:
             self.LAST_CALLED_AT = datetime.now()
