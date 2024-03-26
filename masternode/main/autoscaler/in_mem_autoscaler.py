@@ -12,7 +12,8 @@ class LocalAutoscaler(Autoscaler):
 
     def upscale(self, instance_no: int):
         if instance_no > self.count:
-            self.cache.register_new_node(InMemoryDataNode("datanode-" + str(self.count), self.count))
+            node = InMemoryDataNode("datanode-" + str(self.count), self.count)
+            self.cache.register_new_node(node)
             self.count += 1
             LOGGER.info("Up scaling: no of nodes: {}", self.count)
         else:

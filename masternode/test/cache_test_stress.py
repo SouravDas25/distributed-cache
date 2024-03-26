@@ -14,7 +14,7 @@ class DistributedCacheStressTest(unittest.TestCase):
         config.cache_size = 10
         config.autoscaler_type = "LOCAL"
         self.cache = DistributedCache(config)
-        self.cache.autoscaler.upscale()
+        self.cache.autoscaler.upscale(1)
         self.run_balance()
         self.saved_keys = set()
 

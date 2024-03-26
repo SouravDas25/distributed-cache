@@ -15,10 +15,7 @@ from flask import Flask, request, Response
 
 from LRUCache import LRUCache
 
-
-
-app = Flask(__name__)
-cache = LRUCache()
+CACHE_SIZE = os.environ.get('CACHE_SIZE', 10)
 
 CF_INSTANCE_INDEX = os.environ.get('CF_INSTANCE_INDEX', 0)
 # Access VCAP_SERVICES environment variable
@@ -29,6 +26,10 @@ VCAP_APPLICATION = json.loads(os.getenv('VCAP_APPLICATION', '{}'))
 MASTER_NODE_URL = os.environ.get('MASTER_NODE_URL', "")
 
 LAST_REQ_TIME = datetime.now()
+
+app = Flask(__name__)
+cache = LRUCache()
+
 
 def post_to_masternode():
     url = f"{MASTER_NODE_URL}/post-new-instance"
@@ -72,6 +73,7 @@ def before_request():
     global LAST_REQ_TIME
     LAST_REQ_TIME = datetime.now()
     pass
+
 
 @app.route("/")
 def hello_world():

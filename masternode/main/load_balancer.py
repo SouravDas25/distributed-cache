@@ -125,8 +125,8 @@ class RingLoadBalancer:
 
         is_upscale_req = len(overloaded_nodes) - (len(underloaded_nodes) + self.ring.no_of_free_nodes())
         if is_upscale_req > 0:
-            next_instance_no = self.ring.no_of_active_nodes() + self.ring.no_of_free_nodes() + self.ring.no_of_blocked_nodes()
-            self.autoscaler.upscale(next_instance_no)
+            current_no_of_nodes = self.ring.no_of_active_nodes() + self.ring.no_of_free_nodes() + self.ring.no_of_blocked_nodes()
+            self.autoscaler.upscale(current_no_of_nodes + 1)
 
         awaits = []
 
