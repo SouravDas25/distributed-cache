@@ -4,6 +4,7 @@ from typing import TypeVar, Generic
 
 from sortedcontainers import SortedDict
 
+from masternode.main.common.hashing import random_str, stable_hash
 from masternode.main.datanodes.datanode import DataNode
 from loguru import logger as LOGGER
 
@@ -146,27 +147,9 @@ class ConsistentHashRing(Generic[T]):
     def no_of_blocked_nodes(self) -> int:
         return self.__blocked_nodes.__len__()
 
-
-if __name__ == "__main__":
-    bst = ConsistentHashRing()
-
-    for i in range(0, 150, 5):
-        bst.put(i, f"Value {i}")
-
-    print(bst)
-    # {0=Value 0, 5=Value 5, 10=Value 10, 15=Value 15 ... }
-
-    print(bst.get(50))
-    # Value 50
-
-    print(bst.lower_hash(10))
-    # Value 5
-
-    print(bst.higher_hash(10))
-    # Value 15
-
-    print(bst.lower_entry(6))
-    # 5=Value 5
-
-    print(bst.higher_entry(6))
-    # 10=Value 10
+    def resolve_node(self, key: str) -> DataNode:
+        key_hash = stable_hash(key)
+        key_hash = self.floor_hash(key_hash)
+        if key_hash is None:
+            key_hash = self.last_hash()
+        return self.get_active_node(key_hash)

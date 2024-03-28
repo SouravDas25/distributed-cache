@@ -9,12 +9,12 @@ sys.path.append(SCRIPT_DIR)
 
 from flask import Flask, request
 
-from cache import DistributedCache, CacheConfig
+from map import DistributedMap, ClusterConfig
 from datanodes.network_datanode import NetworkDataNode
 
-config = CacheConfig()
+config = ClusterConfig()
 app = Flask(__name__)
-distributed_cache = DistributedCache(config)
+distributed_cache = DistributedMap(config)
 
 
 @app.get("/")

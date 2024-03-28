@@ -227,13 +227,6 @@ class RingLoadBalancer:
             LOGGER.exception("Exception while merging node", e)
         pass
 
-    def resolve_node(self, key: str) -> DataNode:
-        key_hash = stable_hash(key)
-        key_hash = self.ring.floor_hash(key_hash)
-        if key_hash is None:
-            key_hash = self.ring.last_hash()
-        return self.ring.get_active_node(key_hash)
-
     def load(self):
         return sum([self.ring.get_active_node(node_hash).size() / self.max_size for node_hash in
                     self.ring.all_active_node_hashes()]) / self.ring.no_of_active_nodes()

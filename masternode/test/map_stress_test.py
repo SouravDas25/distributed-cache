@@ -2,18 +2,18 @@ import asyncio
 import unittest
 import random
 
-from masternode.main.cache import DistributedCache, CacheConfig
+from masternode.main.map import DistributedMap, ClusterConfig
 from masternode.main.common.hashing import random_str
 from loguru import logger as LOGGER
 
 
-class DistributedCacheStressTest(unittest.TestCase):
+class DistributedMapStressTest(unittest.TestCase):
 
     def setUp(self):
-        config = CacheConfig()
-        config.cache_size = 10
+        config = ClusterConfig()
+        config.map_size = 10
         config.autoscaler_type = "LOCAL"
-        self.cache = DistributedCache(config)
+        self.cache = DistributedMap(config)
         self.cache.autoscaler.upscale(1)
         self.run_balance()
         self.saved_keys = set()

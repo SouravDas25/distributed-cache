@@ -1,16 +1,16 @@
 import asyncio
 import unittest
 
-from masternode.main.cache import DistributedCache, CacheConfig
+from masternode.main.map import DistributedMap, ClusterConfig
 from loguru import logger as LOGGER
 
 
-class DistributedCacheTest(unittest.TestCase):
+class DistributedMapTest(unittest.TestCase):
 
     def setUp(self):
-        config = CacheConfig()
+        config = ClusterConfig()
         config.autoscaler_type = "LOCAL"
-        self.cache = DistributedCache(config)
+        self.cache = DistributedMap(config)
         self.cache.autoscaler.upscale()
         self.run_balance()
 

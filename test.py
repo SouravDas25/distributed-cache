@@ -69,7 +69,7 @@ if __name__ == "__main__":
     import random
     import string
 
-    URL = "http://127.0.0.1:64537"
+    URL = "http://127.0.0.1:57840"
 
 
     def strGen(N):
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         action = input("Enter action(I/C/G/R): ")
 
         if action == "I":
-            keys.clear()
+            # keys.clear()
             for i in range(10):
                 key = strGen(3)
                 print("Inserting key : ", key)
@@ -132,3 +132,5 @@ if __name__ == "__main__":
         # print(sc.clusterSize(), sc.servePoints)
         # sc.printClusterDistribution()
         # sleep(5)
+
+

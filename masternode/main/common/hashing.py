@@ -10,4 +10,5 @@ def stable_hash(key: str):
 
 
 def random_str(n: int) -> str:
-    return ''.join(random.sample(string.ascii_uppercase + string.digits, n))
+    m = n // len(string.ascii_uppercase + string.digits) + 1
+    return ''.join(random.sample((string.ascii_uppercase + string.digits) * m, n))
