@@ -3,7 +3,7 @@ import random
 import string
 
 
-def stable_hash(key: str):
+def stable_hash(key: str) -> int:
     str_bytes = bytes(key, "UTF-8")
     m = hashlib.md5(str_bytes)
     return int(m.hexdigest(), base=16)
